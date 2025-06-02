@@ -28,7 +28,21 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Состояния для ConversationHandler
-ASK_BIRTH, ASK_TIME, ASK_COUNTRY, ASK_CITY, ASK_SIGN = range(5)
+ASK_BIRTH, ASK_TIME, ASK_COUNTRY, ASK_CITY = range(4)
+
+# Определение знака зодиака
+ZODIAC_SIGNS = [
+    (120, "Козерог"), (218, "Водолей"), (320, "Рыбы"), (420, "Овен"),
+    (521, "Телец"), (621, "Близнецы"), (722, "Рак"), (823, "Лев"),
+    (923, "Дева"), (1023, "Весы"), (1122, "Скорпион"), (1222, "Стрелец"), (1231, "Козерог")
+]
+
+def get_zodiac_sign(date: datetime.date) -> str:
+    month_day = int(date.strftime("%m%d"))
+    for limit, sign in ZODIAC_SIGNS:
+        if month_day <= limit:
+            return sign
+    return "Козерог"
 
 # Команда /start
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -56,6 +70,7 @@ async def ask_birth(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         birth_date = datetime.strptime(user_input, "%d.%m.%Y").date()
         context.user_data["birth_date"] = birth_date
+        context.user_data["zodiac_sign"] = get_zodiac_sign(birth_date)
         await update.message.reply_text("Спасибо! А теперь введи время рождения в формате ЧЧ:ММ (например, 14:30):")
         return ASK_TIME
     except ValueError:
@@ -80,15 +95,9 @@ async def ask_country(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("А в каком городе?")
     return ASK_CITY
 
-# Получаем город
+# Получаем город и сохраняем всё
 async def ask_city(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data["birth_city"] = update.message.text.strip()
-    await update.message.reply_text("Отлично! Теперь напиши свой знак зодиака (например: Лев, Рыбы и т.д.):")
-    return ASK_SIGN
-
-# Получаем знак зодиака и сохраняем всё
-async def ask_sign(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    sign = update.message.text.strip().capitalize()
     user = update.effective_user
 
     data = {
@@ -96,13 +105,13 @@ async def ask_sign(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "birth_time": str(context.user_data.get("birth_time")),
         "birth_country": context.user_data.get("birth_country"),
         "birth_city": context.user_data.get("birth_city"),
-        "zodiac_sign": sign
+        "zodiac_sign": context.user_data.get("zodiac_sign")
     }
 
     supabase.table("users").update(data).eq("tg_id", user.id).execute()
 
     await update.message.reply_text(
-        f"Спасибо! Профиль обновлён. Ты — {sign}, родился {context.user_data['birth_date'].strftime('%d.%m.%Y')} в {data['birth_city']}, {data['birth_country']} в {data['birth_time']} ☀️"
+        f"Спасибо! Профиль обновлён. Ты — {data['zodiac_sign']}, родился {context.user_data['birth_date'].strftime('%d.%m.%Y')} в {data['birth_city']}, {data['birth_country']} в {data['birth_time']} ☀️"
     )
     return ConversationHandler.END
 
@@ -122,7 +131,6 @@ if __name__ == "__main__":
             ASK_TIME: [MessageHandler(filters.TEXT & ~filters.COMMAND, ask_time)],
             ASK_COUNTRY: [MessageHandler(filters.TEXT & ~filters.COMMAND, ask_country)],
             ASK_CITY: [MessageHandler(filters.TEXT & ~filters.COMMAND, ask_city)],
-            ASK_SIGN: [MessageHandler(filters.TEXT & ~filters.COMMAND, ask_sign)],
         },
         fallbacks=[CommandHandler("cancel", cancel)],
     )
@@ -130,3 +138,4 @@ if __name__ == "__main__":
     app.add_handler(conv_handler)
     logger.info("Bot started")
     app.run_polling()
+
