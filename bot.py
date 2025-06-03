@@ -115,19 +115,26 @@ async def ask_city(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
     return ConversationHandler.END
 
-# Команда /разбор — LITE гороскоп по дате/времени/месту
+# Команда /razbor — кэшируемый LITE гороскоп
 async def horoscope(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     tg_id = user.id
 
-    res = supabase.table("users").select("birth_date, birth_time, birth_country, birth_city").eq("tg_id", tg_id).execute()
-    if not res.data:
+    user_res = supabase.table("users").select("id, birth_date, birth_time, birth_country, birth_city").eq("tg_id", tg_id).execute()
+    if not user_res.data:
         await update.message.reply_text("Пожалуйста, сначала заполни профиль через /start")
         return
 
-    row = res.data[0]
-    date_str = datetime.strptime(row['birth_date'], "%Y-%m-%d").strftime("%d %B %Y")
-    time_str = row['birth_time'][:5] if row['birth_time'] else "--:--"
+    user_row = user_res.data[0]
+    user_id = user_row['id']
+
+    cached = supabase.table("natal_reports").select("report_text").eq("user_id", user_id).execute()
+    if cached.data:
+        await update.message.reply_text(f"🌟 Твой персональный разбор:\n\n{cached.data[0]['report_text']}")
+        return
+
+    date_str = datetime.strptime(user_row['birth_date'], "%Y-%m-%d").strftime("%d %B %Y")
+    time_str = user_row['birth_time'][:5] if user_row['birth_time'] else "--:--"
 
     prompt = (
         "Ты — астролог. На основе этих данных составь краткий психологический разбор личности.\n"
@@ -136,12 +143,12 @@ async def horoscope(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"Вот данные:\n"
         f"Дата рождения: {date_str}\n"
         f"Время: {time_str}\n"
-        f"Город: {row['birth_city']}\n"
-        f"Страна: {row['birth_country']}"
+        f"Город: {user_row['birth_city']}\n"
+        f"Страна: {user_row['birth_country']}"
     )
 
     response = OPENAI.chat.completions.create(
-        model="gpt-4",
+        model="gpt-4-turbo",
         messages=[
             {"role": "system", "content": prompt}
         ],
@@ -150,6 +157,12 @@ async def horoscope(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
     text = response.choices[0].message.content.strip()
+
+    supabase.table("natal_reports").insert({
+        "user_id": user_id,
+        "report_text": text
+    }).execute()
+
     await update.message.reply_text(f"🌟 Твой персональный разбор:\n\n{text}")
 
 # Отмена
