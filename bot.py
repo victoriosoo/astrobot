@@ -173,7 +173,7 @@ if __name__ == "__main__":
     )
 
     app.add_handler(conv_handler)
-    app.add_handler(CommandHandler("разбор", horoscope))
+    app.add_handler(CommandHandler("razbor", horoscope))
 
     logger.info("Bot started")
     app.run_polling()
