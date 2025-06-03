@@ -115,6 +115,43 @@ async def ask_city(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
     return ConversationHandler.END
 
+# Команда /разбор — LITE гороскоп по дате/времени/месту
+async def horoscope(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user = update.effective_user
+    tg_id = user.id
+
+    res = supabase.table("users").select("birth_date, birth_time, birth_country, birth_city").eq("tg_id", tg_id).execute()
+    if not res.data:
+        await update.message.reply_text("Пожалуйста, сначала заполни профиль через /start")
+        return
+
+    row = res.data[0]
+    date_str = datetime.strptime(row['birth_date'], "%Y-%m-%d").strftime("%d %B %Y")
+    time_str = row['birth_time'][:5] if row['birth_time'] else "--:--"
+
+    prompt = (
+        "Ты — астролог. На основе этих данных составь краткий психологический разбор личности.\n"
+        "Используй знания западной астрологии. Основывайся на предполагаемом положении Солнца, Луны и Асцендента.\n"
+        "Не уточняй, что карта не точная — просто дай красивую интерпретацию.\n\n"
+        f"Вот данные:\n"
+        f"Дата рождения: {date_str}\n"
+        f"Время: {time_str}\n"
+        f"Город: {row['birth_city']}\n"
+        f"Страна: {row['birth_country']}"
+    )
+
+    response = OPENAI.chat.completions.create(
+        model="gpt-4",
+        messages=[
+            {"role": "system", "content": prompt}
+        ],
+        temperature=0.9,
+        max_tokens=600
+    )
+
+    text = response.choices[0].message.content.strip()
+    await update.message.reply_text(f"🌟 Твой персональный разбор:\n\n{text}")
+
 # Отмена
 async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("Окей, если что — просто напиши /start", reply_markup=ReplyKeyboardRemove())
@@ -136,6 +173,8 @@ if __name__ == "__main__":
     )
 
     app.add_handler(conv_handler)
+    app.add_handler(CommandHandler("разбор", horoscope))
+
     logger.info("Bot started")
     app.run_polling()
 
