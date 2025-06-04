@@ -1,9 +1,10 @@
 import os
 import logging
-from datetime import datetime, time
+import asyncio
+from datetime import datetime
 
 from dotenv import load_dotenv
-from telegram import Update, ReplyKeyboardRemove
+from telegram import Update, ReplyKeyboardRemove, KeyboardButton, ReplyKeyboardMarkup
 from telegram.ext import (
     ApplicationBuilder,
     CommandHandler,
@@ -28,21 +29,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Состояния для ConversationHandler
-ASK_BIRTH, ASK_TIME, ASK_COUNTRY, ASK_CITY = range(4)
-
-# Определение знака зодиака
-ZODIAC_SIGNS = [
-    (120, "Козерог"), (218, "Водолей"), (320, "Рыбы"), (420, "Овен"),
-    (521, "Телец"), (621, "Близнецы"), (722, "Рак"), (823, "Лев"),
-    (923, "Дева"), (1023, "Весы"), (1122, "Скорпион"), (1222, "Стрелец"), (1231, "Козерог")
-]
-
-def get_zodiac_sign(date: datetime.date) -> str:
-    month_day = int(date.strftime("%m%d"))
-    for limit, sign in ZODIAC_SIGNS:
-        if month_day <= limit:
-            return sign
-    return "Козерог"
+ASK_BIRTH, ASK_TIME, ASK_LOCATION = range(3)
 
 # Команда /start
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -53,117 +40,72 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Проверка в Supabase
     existing = supabase.table("users").select("id").eq("tg_id", tg_id).execute()
     if not existing.data:
-        supabase.table("users").insert({
-            "tg_id": tg_id,
-            "name": name
-        }).execute()
+        supabase.table("users").insert({"tg_id": tg_id, "name": name}).execute()
 
     await update.message.reply_text(
-        "Привет! Я CosmoAstro 🪐\n"
-        "Давай настроим твой профиль. Сначала напиши свою дату рождения в формате ДД.ММ.ГГГГ:"
+        "Привет! Я CosmoAstro — твой астрологический навигатор по самому важному путешествию: тебе самому 🌌\n\n"
+        "Здесь ты можешь:\n"
+        "✨ Получить натальную карту по дате, времени и месту рождения\n"
+        "🌙 Узнавать, как луна влияет на твой день\n"
+        "🪐 Понять, в какие дни действовать, а в какие — просто побыть собой\n\n"
+        "Всё, что тебе нужно — ответить на 3 простых вопроса."
+    )
+
+    await asyncio.sleep(5)
+
+    await update.message.reply_text(
+        "Готов узнать о себе больше?\nНажми 'Готов', и мы начнём.",
+        reply_markup=ReplyKeyboardMarkup([[KeyboardButton("🔮 Готов")]], resize_keyboard=True)
     )
     return ASK_BIRTH
 
 # Получаем дату рождения
 async def ask_birth(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_input = update.message.text.strip()
-    try:
-        birth_date = datetime.strptime(user_input, "%d.%m.%Y").date()
-        context.user_data["birth_date"] = birth_date
-        context.user_data["zodiac_sign"] = get_zodiac_sign(birth_date)
-        await update.message.reply_text("Спасибо! А теперь введи время рождения в формате ЧЧ:ММ (например, 14:30):")
-        return ASK_TIME
-    except ValueError:
-        await update.message.reply_text("Неверный формат. Введи дату так: 01.03.1998")
+    if update.message.text != "🔮 Готов":
+        await update.message.reply_text("Нажми кнопку '🔮 Готов', чтобы начать")
         return ASK_BIRTH
+
+    await update.message.reply_text("1/3 — Введи свою дату рождения в формате ДД.ММ.ГГГГ:", reply_markup=ReplyKeyboardRemove())
+    return ASK_TIME
 
 # Получаем время рождения
 async def ask_time(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_input = update.message.text.strip()
     try:
-        birth_time = datetime.strptime(user_input, "%H:%M").time()
-        context.user_data["birth_time"] = birth_time
-        await update.message.reply_text("Хорошо! В какой стране ты родился?")
-        return ASK_COUNTRY
+        birth_date = datetime.strptime(user_input, "%d.%m.%Y").date()
+        context.user_data["birth_date"] = birth_date
+        await update.message.reply_text("2/3 — А теперь введи время рождения в формате ЧЧ:ММ (например, 03:00):")
+        return ASK_LOCATION
     except ValueError:
-        await update.message.reply_text("Неверный формат. Введи время так: 14:30")
+        await update.message.reply_text("Неверный формат. Введи дату так: 01.03.1998")
         return ASK_TIME
 
-# Получаем страну
-async def ask_country(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    context.user_data["birth_country"] = update.message.text.strip()
-    await update.message.reply_text("А в каком городе?")
-    return ASK_CITY
-
-# Получаем город и сохраняем всё
-async def ask_city(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    context.user_data["birth_city"] = update.message.text.strip()
+# Получаем страну и город (в одной строке)
+async def ask_location(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    context.user_data["birth_location"] = update.message.text.strip()
     user = update.effective_user
 
-    data = {
-        "birth_date": str(context.user_data.get("birth_date")),
-        "birth_time": str(context.user_data.get("birth_time")),
-        "birth_country": context.user_data.get("birth_country"),
-        "birth_city": context.user_data.get("birth_city"),
-        "zodiac_sign": context.user_data.get("zodiac_sign")
-    }
+    location_parts = context.user_data["birth_location"].split(",")
+    country = location_parts[-1].strip() if len(location_parts) > 1 else ""
+    city = location_parts[0].strip()
 
-    supabase.table("users").update(data).eq("tg_id", user.id).execute()
+    supabase.table("users").update({
+        "birth_date": str(context.user_data["birth_date"]),
+        "birth_time": "03:00",  # временно жёстко задано для MVP
+        "birth_country": country,
+        "birth_city": city
+    }).eq("tg_id", user.id).execute()
 
     await update.message.reply_text(
-        f"Спасибо! Профиль обновлён. Ты — {data['zodiac_sign']}, родился {context.user_data['birth_date'].strftime('%d.%m.%Y')} в {data['birth_city']}, {data['birth_country']} в {data['birth_time']} ☀️"
+        "Спасибо! Теперь, на основе этих данных, мы можем рассказать тебе куда больше, чем ты сам о себе знаешь.\n\n"
+        "Выбирай, что хочешь узнать:",
+        reply_markup=ReplyKeyboardMarkup([
+            ["🔮 Натальный разбор"],
+            ["🌙 Луна сегодня"],
+            ["⚡ Энергия дня"]
+        ], resize_keyboard=True)
     )
     return ConversationHandler.END
-
-# Команда /razbor — кэшируемый LITE гороскоп
-async def horoscope(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user = update.effective_user
-    tg_id = user.id
-
-    user_res = supabase.table("users").select("id, birth_date, birth_time, birth_country, birth_city").eq("tg_id", tg_id).execute()
-    if not user_res.data:
-        await update.message.reply_text("Пожалуйста, сначала заполни профиль через /start")
-        return
-
-    user_row = user_res.data[0]
-    user_id = user_row['id']
-
-    cached = supabase.table("natal_reports").select("report_text").eq("user_id", user_id).execute()
-    if cached.data:
-        await update.message.reply_text(f"🌟 Твой персональный разбор:\n\n{cached.data[0]['report_text']}")
-        return
-
-    date_str = datetime.strptime(user_row['birth_date'], "%Y-%m-%d").strftime("%d %B %Y")
-    time_str = user_row['birth_time'][:5] if user_row['birth_time'] else "--:--"
-
-    prompt = (
-        "Ты — астролог. На основе этих данных составь краткий психологический разбор личности.\n"
-        "Используй знания западной астрологии. Основывайся на предполагаемом положении Солнца, Луны и Асцендента.\n"
-        "Не уточняй, что карта не точная — просто дай красивую интерпретацию.\n\n"
-        f"Вот данные:\n"
-        f"Дата рождения: {date_str}\n"
-        f"Время: {time_str}\n"
-        f"Город: {user_row['birth_city']}\n"
-        f"Страна: {user_row['birth_country']}"
-    )
-
-    response = OPENAI.chat.completions.create(
-        model="gpt-4-turbo",
-        messages=[
-            {"role": "system", "content": prompt}
-        ],
-        temperature=0.9,
-        max_tokens=600
-    )
-
-    text = response.choices[0].message.content.strip()
-
-    supabase.table("natal_reports").insert({
-        "user_id": user_id,
-        "report_text": text
-    }).execute()
-
-    await update.message.reply_text(f"🌟 Твой персональный разбор:\n\n{text}")
 
 # Отмена
 async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -179,15 +121,12 @@ if __name__ == "__main__":
         states={
             ASK_BIRTH: [MessageHandler(filters.TEXT & ~filters.COMMAND, ask_birth)],
             ASK_TIME: [MessageHandler(filters.TEXT & ~filters.COMMAND, ask_time)],
-            ASK_COUNTRY: [MessageHandler(filters.TEXT & ~filters.COMMAND, ask_country)],
-            ASK_CITY: [MessageHandler(filters.TEXT & ~filters.COMMAND, ask_city)],
+            ASK_LOCATION: [MessageHandler(filters.TEXT & ~filters.COMMAND, ask_location)],
         },
         fallbacks=[CommandHandler("cancel", cancel)],
     )
 
     app.add_handler(conv_handler)
-    app.add_handler(CommandHandler("razbor", horoscope))
-
     logger.info("Bot started")
     app.run_polling()
 
