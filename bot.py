@@ -82,12 +82,17 @@ async def ask_time(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 # Получаем страну и город (в одной строке)
 async def ask_location(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    context.user_data["birth_location"] = update.message.text.strip()
+    location_raw = update.message.text.strip()
+    context.user_data["birth_location"] = location_raw
     user = update.effective_user
 
-    location_parts = context.user_data["birth_location"].split(",")
-    country = location_parts[-1].strip() if len(location_parts) > 1 else ""
-    city = location_parts[0].strip()
+    location_parts = location_raw.split(",")
+    if len(location_parts) < 2:
+        await update.message.reply_text("Неверный формат. Введи, например: Латвия, Рига")
+        return ASK_LOCATION
+
+    country = location_parts[0].strip()
+    city = location_parts[1].strip()
 
     supabase.table("users").update({
         "birth_date": str(context.user_data["birth_date"]),
@@ -95,6 +100,12 @@ async def ask_location(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "birth_country": country,
         "birth_city": city
     }).eq("tg_id", user.id).execute()
+
+    await update.message.reply_text(
+        "3/3 — А теперь введи страну и город, например: Латвия, Рига"
+    )
+
+    await asyncio.sleep(1.5)
 
     await update.message.reply_text(
         "Спасибо! Теперь, на основе этих данных, мы можем рассказать тебе куда больше, чем ты сам о себе знаешь.\n\n"
@@ -129,4 +140,5 @@ if __name__ == "__main__":
     app.add_handler(conv_handler)
     logger.info("Bot started")
     app.run_polling()
+
 
