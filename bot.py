@@ -1,10 +1,15 @@
 import os
 import logging
 import asyncio
-from datetime import datetime
+from datetime import datetime, time as dt_time
 
 from dotenv import load_dotenv
-from telegram import Update, ReplyKeyboardRemove, KeyboardButton, ReplyKeyboardMarkup
+from telegram import (
+    Update,
+    ReplyKeyboardRemove,
+    KeyboardButton,
+    ReplyKeyboardMarkup,
+)
 from telegram.ext import (
     ApplicationBuilder,
     CommandHandler,
@@ -13,35 +18,41 @@ from telegram.ext import (
     ConversationHandler,
     filters,
 )
-from openai import OpenAI
 from supabase import create_client, Client
+from openai import OpenAI
 
-# Загрузка переменных окружения
+# --------------------------------------------------
+# ENV & INIT
+# --------------------------------------------------
 load_dotenv()
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_ANON_KEY")
-supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
-
 TG_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
-OPENAI = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+
+supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+openai = OpenAI(api_key=OPENAI_API_KEY)
 
 logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("bot")
 
-# Состояния для ConversationHandler
-ASK_BIRTH, ASK_TIME, ASK_LOCATION = range(3)
+# --------------------------------------------------
+# Conversation states
+# --------------------------------------------------
+READY, DATE, TIME, LOCATION = range(4)
 
-# Команда /start
+# --------------------------------------------------
+# /start command
+# --------------------------------------------------
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     tg_id = user.id
-    name = user.first_name
 
-    # Проверка в Supabase
-    existing = supabase.table("users").select("id").eq("tg_id", tg_id).execute()
-    if not existing.data:
-        supabase.table("users").insert({"tg_id": tg_id, "name": name}).execute()
+    # ensure user row exists
+    if not supabase.table("users").select("id").eq("tg_id", tg_id).execute().data:
+        supabase.table("users").insert({"tg_id": tg_id, "name": user.first_name}).execute()
 
+    # intro
     await update.message.reply_text(
         "Привет! Я CosmoAstro — твой астрологический навигатор по самому важному путешествию: тебе самому 🌌\n\n"
         "Здесь ты можешь:\n"
@@ -54,91 +65,115 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await asyncio.sleep(5)
 
     await update.message.reply_text(
-        "Готов узнать о себе больше?\nНажми 'Готов', и мы начнём.",
-        reply_markup=ReplyKeyboardMarkup([[KeyboardButton("🔮 Готов")]], resize_keyboard=True)
+        "Готов узнать о себе больше?\nНажми \"Готов\", и мы начнём.",
+        reply_markup=ReplyKeyboardMarkup([[KeyboardButton("🔮 Готов")]], resize_keyboard=True),
     )
-    return ASK_BIRTH
+    return READY
 
-# Получаем дату рождения
-async def ask_birth(update: Update, context: ContextTypes.DEFAULT_TYPE):
+# --------------------------------------------------
+# Step 0 — wait for "Готов"
+# --------------------------------------------------
+async def wait_ready(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.message.text != "🔮 Готов":
-        await update.message.reply_text("Нажми кнопку '🔮 Готов', чтобы начать")
-        return ASK_BIRTH
-
-    await update.message.reply_text("1/3 — Введи свою дату рождения в формате ДД.ММ.ГГГГ:", reply_markup=ReplyKeyboardRemove())
-    return ASK_TIME
-
-# Получаем время рождения
-async def ask_time(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_input = update.message.text.strip()
-    try:
-        birth_date = datetime.strptime(user_input, "%d.%m.%Y").date()
-        context.user_data["birth_date"] = birth_date
-        await update.message.reply_text("2/3 — А теперь введи время рождения в формате ЧЧ:ММ (например, 03:00):")
-        return ASK_LOCATION
-    except ValueError:
-        await update.message.reply_text("Неверный формат. Введи дату так: 01.03.1998")
-        return ASK_TIME
-
-# Получаем страну и город (в одной строке)
-async def ask_location(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    location_raw = update.message.text.strip()
-    context.user_data["birth_location"] = location_raw
-    user = update.effective_user
-
-    location_parts = location_raw.split(",")
-    if len(location_parts) < 2:
-        await update.message.reply_text("Неверный формат. Введи, например: Латвия, Рига")
-        return ASK_LOCATION
-
-    country = location_parts[0].strip()
-    city = location_parts[1].strip()
-
-    supabase.table("users").update({
-        "birth_date": str(context.user_data["birth_date"]),
-        "birth_time": "03:00",  # временно жёстко задано для MVP
-        "birth_country": country,
-        "birth_city": city
-    }).eq("tg_id", user.id).execute()
+        return READY  # ignore anything else
 
     await update.message.reply_text(
-        "3/3 — А теперь введи страну и город, например: Латвия, Рига"
+        "1/3 — Введи свою дату рождения в формате ДД.ММ.ГГГГ:",
+        reply_markup=ReplyKeyboardRemove(),
     )
+    return DATE
 
-    await asyncio.sleep(1.5)
+# --------------------------------------------------
+# Step 1 — date
+# --------------------------------------------------
+async def ask_date(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    raw = update.message.text.strip()
+    try:
+        birth_date = datetime.strptime(raw, "%d.%m.%Y").date()
+        context.user_data["birth_date"] = birth_date
+    except ValueError:
+        await update.message.reply_text("Неверный формат. Попробуй так: 02.03.1998")
+        return DATE
 
+    await update.message.reply_text("2/3 — А теперь введи время рождения в формате ЧЧ:ММ (например, 03:00):")
+    return TIME
+
+# --------------------------------------------------
+# Step 2 — time
+# --------------------------------------------------
+async def ask_time(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    raw = update.message.text.strip()
+    try:
+        birth_time = datetime.strptime(raw, "%H:%M").time()
+        context.user_data["birth_time"] = birth_time
+    except ValueError:
+        await update.message.reply_text("Неверный формат времени. Попробуй так: 03:00")
+        return TIME
+
+    await update.message.reply_text(
+        "3/3 — И наконец, введи страну и город рождения, например: Латвия, Рига",
+    )
+    return LOCATION
+
+# --------------------------------------------------
+# Step 3 — location
+# --------------------------------------------------
+async def ask_location(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    raw = update.message.text.strip()
+    if "," not in raw:
+        await update.message.reply_text("Неверный формат. Введи через запятую: Страна, Город")
+        return LOCATION
+
+    country, city = [x.strip() for x in raw.split(",", maxsplit=1)]
+    context.user_data["birth_country"] = country
+    context.user_data["birth_city"] = city
+
+    # Persist to supabase
+    user = update.effective_user
+    supabase.table("users").update(
+        {
+            "birth_date": str(context.user_data["birth_date"]),
+            "birth_time": str(context.user_data["birth_time"]),
+            "birth_country": country,
+            "birth_city": city,
+        }
+    ).eq("tg_id", user.id).execute()
+
+    # Final message with menu
     await update.message.reply_text(
         "Спасибо! Теперь, на основе этих данных, мы можем рассказать тебе куда больше, чем ты сам о себе знаешь.\n\n"
         "Выбирай, что хочешь узнать:",
-        reply_markup=ReplyKeyboardMarkup([
-            ["🔮 Натальный разбор"],
-            ["🌙 Луна сегодня"],
-            ["⚡ Энергия дня"]
-        ], resize_keyboard=True)
+        reply_markup=ReplyKeyboardMarkup(
+            [["🔮 Натальный разбор"], ["🌙 Луна сегодня"], ["⚡ Энергия дня"]], resize_keyboard=True
+        ),
     )
     return ConversationHandler.END
 
-# Отмена
+# --------------------------------------------------
+# Cancel
+# --------------------------------------------------
 async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("Окей, если что — просто напиши /start", reply_markup=ReplyKeyboardRemove())
     return ConversationHandler.END
 
-# Запуск
+# --------------------------------------------------
+# Main
+# --------------------------------------------------
 if __name__ == "__main__":
     app = ApplicationBuilder().token(TG_TOKEN).build()
 
-    conv_handler = ConversationHandler(
+    conv = ConversationHandler(
         entry_points=[CommandHandler("start", start)],
         states={
-            ASK_BIRTH: [MessageHandler(filters.TEXT & ~filters.COMMAND, ask_birth)],
-            ASK_TIME: [MessageHandler(filters.TEXT & ~filters.COMMAND, ask_time)],
-            ASK_LOCATION: [MessageHandler(filters.TEXT & ~filters.COMMAND, ask_location)],
+            READY: [MessageHandler(filters.TEXT & ~filters.COMMAND, wait_ready)],
+            DATE: [MessageHandler(filters.TEXT & ~filters.COMMAND, ask_date)],
+            TIME: [MessageHandler(filters.TEXT & ~filters.COMMAND, ask_time)],
+            LOCATION: [MessageHandler(filters.TEXT & ~filters.COMMAND, ask_location)],
         },
         fallbacks=[CommandHandler("cancel", cancel)],
     )
 
-    app.add_handler(conv_handler)
+    app.add_handler(conv)
     logger.info("Bot started")
     app.run_polling()
-
 
