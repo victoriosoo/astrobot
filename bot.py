@@ -1,4 +1,5 @@
 import os
+import io
 import logging
 import asyncio
 from datetime import datetime
@@ -25,197 +26,198 @@ from telegram.ext import (
 )
 from supabase import create_client, Client
 from openai import OpenAI
+from reportlab.pdfgen import canvas
 
-# ---------- ENV & INIT ----------
+# ─────────────────── env & clients ───────────────────
 load_dotenv()
 SUPABASE_URL = os.getenv("SUPABASE_URL")
-SUPABASE_KEY = os.getenv("SUPABASE_ANON_KEY")
-TG_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-
+SUPABASE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")  # service‑role key ⇒ full access
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
-openai = OpenAI(api_key=OPENAI_API_KEY)
+
+TG_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
+openai = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# ---------- STATES ----------
+# ─────────────────── state machine ───────────────────
 READY, DATE, TIME, LOCATION = range(4)
 
-# ---------- /start ----------
+# ─────────────────── helpers ─────────────────────────
+
+def text_to_pdf(text: str) -> bytes:
+    """Convert plain text to PDF and return bytes."""
+    buffer = io.BytesIO()
+    c = canvas.Canvas(buffer)
+    y = 800
+    for line in text.splitlines():
+        c.drawString(40, y, line)
+        y -= 15
+        if y < 40:
+            c.showPage()
+            y = 800
+    c.save()
+    buffer.seek(0)
+    return buffer.read()
+
+def upload_pdf(user_id: str, data: bytes) -> str:
+    bucket = supabase.storage.from_("destiny-reports")
+    filename = f"{user_id}.pdf"
+    bucket.upload(filename, data, content_type="application/pdf", upsert=True)
+    return bucket.get_public_url(filename)
+
+def build_destiny_prompt(row: dict) -> str:
+    return dedent(f"""
+        SYSTEM:
+        Ты — опытный астропсихолог. Объясняй понятно, без жаргона, в дружелюбном тоне, на «ты».
+        Не упоминай ограничений модели и не говори, что это искусственный интеллект.
+
+        USER:
+        Данные для натального анализа:
+        Имя: {row['name']}
+        Дата рождения: {row['birth_date']}
+        Время рождения: {row['birth_time']}
+        Место рождения: {row['birth_city']}, {row['birth_country']}
+
+        Составь «Карту предназначения» (650–800 слов). Структура:
+        1. 🎯 Миссия души – 5–7 предложений.
+        2. 💎 Врождённые таланты – маркированный список из 4–5 пунктов.
+        3. 💼 Профессия и деньги – 5–7 предложений о подходящих сферах и стиле заработка.
+        4. ⚠️ Возможные блоки – 4–5 пунктов с коротким советом, как их обходить.
+        5. 🛠 Рекомендации – 5–7 предложений.
+        В конце добавь абзац «Как применять знания на практике». Никаких заголовков «заключение».
+    """)
+
+# ─────────────────── command /start ──────────────────
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     tg_id = user.id
-    name = user.first_name
 
-    # Ensure user row exists
+    # ensure user row exists
     if not supabase.table("users").select("id").eq("tg_id", tg_id).execute().data:
-        supabase.table("users").insert({"tg_id": tg_id, "name": name}).execute()
+        supabase.table("users").insert({"tg_id": tg_id, "name": user.first_name}).execute()
 
-    await update.message.reply_text(
-        dedent(
-            """
-            Привет! Я CosmoAstro — твой астрологический навигатор по самому важному путешествию: тебе самому 🌌
-
-            Здесь ты можешь:
-            ✨ Получить натальную карту по дате, времени и месту рождения
-            🌙 Узнавать, как луна влияет на твой день
-            🪐 Понять, в какие дни действовать, а в какие — просто побыть собой
-
-            Всё, что тебе нужно — ответить на 3 простых вопроса.
-            """
-        )
+    greeting = (
+        "Привет! Я CosmoAstro — твой астрологический навигатор по самому важному путешествию: тебе самому 🌌\n\n"
+        "Здесь ты можешь:\n"
+        "✨ Получить натальную карту по дате, времени и месту рождения\n"
+        "🌙 Узнавать, как луна влияет на твой день\n"
+        "🪐 Понять, в какие дни действовать, а в какие — просто побыть собой\n\n"
+        "Всё, что тебе нужно — ответить на 3 простых вопроса."
     )
-
+    await update.message.reply_text(greeting)
     await asyncio.sleep(5)
-
     await update.message.reply_text(
         "Готов узнать о себе больше?\nНажми 'Готов', и мы начнём.",
         reply_markup=ReplyKeyboardMarkup([[KeyboardButton("🔮 Готов")]], resize_keyboard=True)
     )
     return READY
 
-# ---------- PROFILE QUESTIONS ----------
 async def ask_date(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.message.text != "🔮 Готов":
-        return READY
-    await update.message.reply_text("1/3 — Введи дату рождения (ДД.ММ.ГГГГ):", reply_markup=ReplyKeyboardRemove())
+    await update.message.reply_text("1/3 — Введи свою дату рождения в формате ДД.ММ.ГГГГ:", reply_markup=ReplyKeyboardRemove())
     return DATE
 
 async def save_date(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    txt = update.message.text.strip()
     try:
-        birth_date = datetime.strptime(update.message.text.strip(), "%d.%m.%Y").date()
-        context.user_data["birth_date"] = birth_date
-        await update.message.reply_text("2/3 — Введи время рождения (ЧЧ:ММ):")
-        return TIME
+        context.user_data["birth_date"] = datetime.strptime(txt, "%d.%m.%Y").date()
     except ValueError:
-        await update.message.reply_text("Формат даты неверен, попробуй ещё раз: 01.03.1998")
+        await update.message.reply_text("Неверный формат. Попробуй ещё раз: 01.03.1998")
         return DATE
+    await update.message.reply_text("2/3 — Введи время рождения в формате ЧЧ:ММ (например, 03:00):")
+    return TIME
 
 async def save_time(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    txt = update.message.text.strip()
     try:
-        datetime.strptime(update.message.text.strip(), "%H:%M").time()
-        context.user_data["birth_time"] = update.message.text.strip()
-        await update.message.reply_text("3/3 — Введи страну и город, например: Латвия, Рига")
-        return LOCATION
+        datetime.strptime(txt, "%H:%M")
+        context.user_data["birth_time"] = txt
     except ValueError:
-        await update.message.reply_text("Формат времени неверен, попробуй ещё раз: 03:00")
+        await update.message.reply_text("Неверный формат времени. Пример: 03:00")
         return TIME
+    await update.message.reply_text("3/3 — Введи страну и город, например: Латвия, Рига")
+    return LOCATION
 
 async def save_location(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    location_raw = update.message.text.strip()
-    parts = [p.strip() for p in location_raw.split(",")]
+    parts = [p.strip() for p in update.message.text.split(",")]
     if len(parts) < 2:
-        await update.message.reply_text("Нужно два значения через запятую — страна, город. Пример: Латвия, Рига")
+        await update.message.reply_text("Нужен формат: Страна, Город (пример: Латвия, Рига)")
         return LOCATION
+    country, city = parts[0], ", ".join(parts[1:])
 
-    country, city = parts[0], parts[1]
-    user = update.effective_user
-
+    tg_id = update.effective_user.id
     supabase.table("users").update({
         "birth_date": str(context.user_data["birth_date"]),
         "birth_time": context.user_data["birth_time"],
         "birth_country": country,
         "birth_city": city,
-    }).eq("tg_id", user.id).execute()
+    }).eq("tg_id", tg_id).execute()
 
+    menu = ReplyKeyboardMarkup([
+        ["🔮 Натальный разбор"],
+        ["🌙 Луна сегодня"],
+        ["⚡ Энергия дня"],
+        ["📜 Карта предназначения"],
+    ], resize_keyboard=True)
     await update.message.reply_text(
-        "Спасибо! Теперь выбери, что хочешь узнать:",
-        reply_markup=ReplyKeyboardMarkup([
-            ["🔮 Натальный разбор"],
-            ["🌙 Луна сегодня"],
-            ["⚡ Энергия дня"],
-            ["📜 Карта предназначения"],
-        ], resize_keyboard=True)
+        "Спасибо! Теперь выбери, что хочешь узнать:", reply_markup=menu
     )
     return ConversationHandler.END
 
-# ---------- PRODUCTS FLOW ----------
-async def products_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    text = update.message.text
-    if text == "📜 Карта предназначения":
-        await show_destiny_description(update, context)
+# ─────────────────── destiny card flow ───────────────
 
-async def show_destiny_description(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    desc = (
-        "Карта предназначения — это персональное астрологическое послание, раскрывающее самую суть вашего пути: миссию души, врождённые таланты и сферы, где усилия приносят наибольший рост и доход. "
-        "За пару минут вы получите ясный, вдохновляющий ориентир, который поможет принимать решения в гармонии с собой и обходить скрытые блоки."
+async def destiny_product(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    description = (
+        "Карта предназначения — это персональное астрологическое послание, раскрывающее самую суть твоего пути: миссию души, врождённые таланты и сферы, где усилия приносят наибольший рост и доход.\n"
+        "За пару минут ты получишь ясный, вдохновляющий ориентир, который поможет принимать решения в гармонии с собой и обходить скрытые блоки."
     )
-    await update.message.reply_text(desc)
+    await update.message.reply_text(description)
     await asyncio.sleep(5)
-
-    keyboard = InlineKeyboardMarkup([
-        [InlineKeyboardButton("Получить карту", callback_data="get_destiny")]
-    ])
+    cta_kb = InlineKeyboardMarkup([[InlineKeyboardButton("Получить карту", callback_data="get_destiny")]])
     await update.message.reply_text(
-        "Готов открыть собственный маршрут к успеху и свободе? Нажми кнопку ниже и узнай своё истинное предназначение уже сейчас.",
-        reply_markup=keyboard,
+        "Готов открыть собственный маршрут к успеху и свободе? Тогда нажми «Получить карту» и узнай своё истинное предназначение уже сейчас.",
+        reply_markup=cta_kb
     )
 
-async def destiny_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def destiny_card_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
+    msg = await query.message.reply_text("⏳ Формируем карту… это займёт около минуты.")
 
-    user = query.from_user
-    user_row = supabase.table("users").select("name, birth_date, birth_time, birth_country, birth_city, id").eq("tg_id", user.id).execute().data[0]
-    # Prompt building
-    prompt_system = "Ты — опытный астропсихолог. Объясняй понятно, без жаргона, в дружелюбном тоне, на ‘ты’. Не упоминай ограничений модели и не говори, что это ‘искусственный интеллект’."
-    prompt_user = dedent(
-        f"""Данные для натального анализа:
-Имя: {user_row['name'] or 'Друг'}
-Дата рождения: {user_row['birth_date']}
-Время рождения: {user_row['birth_time']}
-Место рождения: {user_row['birth_city']}, {user_row['birth_country']}
+    tg_id = query.from_user.id
+    row = supabase.table("users").select("id,name,birth_date,birth_time,birth_country,birth_city").eq("tg_id", tg_id).execute().data[0]
 
-Составь «Карту предназначения» (~350–450 слов). Структура:
-1. 🎯 Миссия души – 2–3 предложения.
-2. 💎 Врождённые таланты – маркированный список из 3–4 пунктов.
-3. 💼 Профессия и деньги – абзац о подходящих сферах и стиле заработка.
-4. ⚠️ Возможные блоки – 2 пункта с коротким советом, как их обходить.
-5. 🛠 Рекомендации – 3 конкретных шага для раскрытия потенциала.
+    prompt = build_destiny_prompt(row)
+    try:
+        resp = openai.chat.completions.create(
+            model="gpt-4-turbo",
+            messages=[{"role": "system", "content": prompt}],
+            temperature=0.9,
+            max_tokens=1200,
+        )
+        text = resp.choices[0].message.content.strip()
+    except Exception as e:
+        logger.error("OpenAI error: %s", e)
+        await msg.edit_text("Не удалось сгенерировать ответ. Попробуй позже.")
+        return
 
-Никаких пунктов «заключение» — просто заверши последним советом."""
-    )
+    # try PDF
+    try:
+        pdf_bytes = text_to_pdf(text)
+        public_url = upload_pdf(row["id"], pdf_bytes)
+        await query.message.reply_document(public_url, filename="Карта_предназначения.pdf", caption="🔮 Карта предназначения готова!")
+    except Exception as e:
+        logger.error("PDF error → fallback text: %s", e)
+        await query.message.reply_text(f"🔮 Карта предназначения готова:\n\n{text}")
 
-    completion = openai.chat.completions.create(
-        model="gpt-4o-mini",
-        messages=[{"role": "system", "content": prompt_system}, {"role": "user", "content": prompt_user}],
-        temperature=0.8,
-        max_tokens=800,
-    )
-    report_text = completion.choices[0].message.content.strip()
+    await msg.delete()
 
-    await query.edit_message_text(
-        f"🔮 *Карта предназначения готова*:\n\n{report_text}",
-        parse_mode=constants.ParseMode.MARKDOWN,
-        disable_web_page_preview=True,
-    )
-
-# ---------- CANCEL ----------
-async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Отменено. Напиши /start, если захочешь начать заново.", reply_markup=ReplyKeyboardRemove())
-    return ConversationHandler.END
-
-# ---------- MAIN ----------
+# ─────────────────── init & handlers ─────────────────
 if __name__ == "__main__":
     app = ApplicationBuilder().token(TG_TOKEN).build()
 
     conv = ConversationHandler(
         entry_points=[CommandHandler("start", start)],
         states={
-            READY: [MessageHandler(filters.TEXT & ~filters.COMMAND, ask_date)],
-            DATE: [MessageHandler(filters.TEXT & ~filters.COMMAND, save_date)],
-            TIME: [MessageHandler(filters.TEXT & ~filters.COMMAND, save_time)],
-            LOCATION: [MessageHandler(filters.TEXT & ~filters.COMMAND, save_location)],
-        },
-        fallbacks=[CommandHandler("cancel", cancel)],
-    )
-
-    app.add_handler(conv)
-    # Router for main menu buttons
-    app.add_handler(MessageHandler(filters.Regex("📜 Карта предназначения"), products_router))
-    app.add_handler(CallbackQueryHandler(destiny_callback, pattern="^get_destiny$"))
-
-    logger.info("Bot started")
-    app.run_polling()
+            READY: [MessageHandler(filters.Regex("^
 
