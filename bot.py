@@ -23,6 +23,11 @@ from telegram.ext import (
     ConversationHandler,
     filters,
 )
+
+# ────────── после import-ов, ПЕРЕД create_client ──────────
+import pprint, os
+pprint.pprint({k: v for k, v in os.environ.items() if k.startswith("SUPABASE")})
+# ──────────────────────────────────────────────────────────
 from supabase import create_client, Client
 from openai import OpenAI
 from reportlab.pdfgen import canvas
@@ -255,3 +260,5 @@ if __name__ == "__main__":
 
     logger.info("Bot started")
     app.run_polling()
+
+
