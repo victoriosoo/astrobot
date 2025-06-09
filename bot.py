@@ -35,7 +35,10 @@ from reportlab.pdfgen import canvas
 # ──────────────── env / logger ────────────────
 load_dotenv()
 SUPABASE_URL = os.getenv("SUPABASE_URL")
-SUPABASE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")  # service-role key!
+SUPABASE_KEY = (
+    os.getenv("SUPABASE_KEY") or
+    os.getenv("SUPABASE_SERVICE_ROLE_KEY")
+)
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 TG_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
