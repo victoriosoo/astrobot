@@ -1,12 +1,9 @@
 import os
 import io
-import time
-import uuid
 import logging
 import asyncio
 from datetime import datetime
 from textwrap import wrap
-from pathlib import Path
 
 from dotenv import load_dotenv
 from telegram import (
@@ -16,7 +13,6 @@ from telegram import (
     ReplyKeyboardMarkup,
     InlineKeyboardMarkup,
     InlineKeyboardButton,
-    InputFile,
 )
 from telegram.ext import (
     ApplicationBuilder,
@@ -27,11 +23,14 @@ from telegram.ext import (
     ConversationHandler,
     filters,
 )
+
+# ────────── после import-ов, ПЕРЕД create_client ──────────
+import pprint, os
+pprint.pprint({k: v for k, v in os.environ.items() if k.startswith("SUPABASE")})
+# ──────────────────────────────────────────────────────────
 from supabase import create_client, Client
 from openai import OpenAI
 from reportlab.pdfgen import canvas
-from reportlab.pdfbase import pdfmetrics
-from reportlab.pdfbase.ttfonts import TTFont
 
 # ──────────────── env / logger ────────────────
 load_dotenv()
@@ -48,23 +47,18 @@ OPENAI = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# ──────────────── fonts ────────────────
-font_path = Path(__file__).with_name("DejaVuSans.ttf")
-pdfmetrics.registerFont(TTFont("DejaVuSans", str(font_path)))
-
 # ──────────────── conversation states ────────────────
 READY, DATE, TIME, LOCATION = range(4)
 
 # ──────────────── helpers ────────────────
 def text_to_pdf(text: str) -> bytes:
+    """Generate simple PDF (A4) from plain text and return bytes."""
     buf = io.BytesIO()
     c = canvas.Canvas(buf)
-    c.setFont("DejaVuSans", 12)
     y = 800
     for line in wrap(text, 90):
         if y < 40:
             c.showPage()
-            c.setFont("DejaVuSans", 12)
             y = 800
         c.drawString(40, y, line)
         y -= 14
@@ -74,11 +68,12 @@ def text_to_pdf(text: str) -> bytes:
 
 def upload_pdf_to_storage(user_id: str, pdf_bytes: bytes) -> str:
     bucket = supabase.storage.from_("destiny-reports")
-    fname = f"{user_id}/{int(time.time())}_{uuid.uuid4().hex}.pdf"
-    bucket.upload(fname, pdf_bytes, {"upsert": True, "contentType": "application/pdf"})
+    fname = f"{user_id}.pdf"
+    bucket.upload(fname, pdf_bytes)
     return bucket.get_public_url(fname)
 
 def build_destiny_prompt(name, date, time_str, city, country) -> list[dict]:
+    """Return messages payload for chat completions."""
     sys = (
         "Ты — опытный астропсихолог. Объясняй понятно, дружелюбно, на «ты». "
         "Не упоминай ограничения модели и что ты ИИ."
@@ -108,6 +103,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     tg_id = user.id
     name = user.first_name
 
+    # ensure user row exists
     if not supabase.table("users").select("id").eq("tg_id", tg_id).execute().data:
         supabase.table("users").insert({"tg_id": tg_id, "name": name}).execute()
 
@@ -161,12 +157,14 @@ async def save_profile(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     country, city = parts[0], parts[1]
     user = update.effective_user
-    supabase.table("users").update({
-        "birth_date": str(context.user_data["birth_date"]),
-        "birth_time": context.user_data["birth_time"].strftime("%H:%M"),
-        "birth_country": country,
-        "birth_city": city,
-    }).eq("tg_id", user.id).execute()
+    supabase.table("users").update(
+        {
+            "birth_date": str(context.user_data["birth_date"]),
+            "birth_time": context.user_data["birth_time"].strftime("%H:%M"),
+            "birth_country": country,
+            "birth_city": city,
+        }
+    ).eq("tg_id", user.id).execute()
 
     await update.message.reply_text(
         "Спасибо! Данные сохранены.\nВыбери, что тебе интересно:",
@@ -208,6 +206,7 @@ async def destiny_card_callback(update: Update, context: ContextTypes.DEFAULT_TY
         return
     u = user_res.data[0]
 
+    # build prompt & call GPT
     messages = build_destiny_prompt(
         name=u.get("name", "Друг"),
         date=datetime.strptime(u["birth_date"], "%Y-%m-%d").strftime("%d.%m.%Y"),
@@ -228,11 +227,13 @@ async def destiny_card_callback(update: Update, context: ContextTypes.DEFAULT_TY
         await query.message.reply_text("Ошибка генерации. Попробуй позже.")
         return
 
+    # generate PDF -> upload -> send
     try:
         pdf_bytes = text_to_pdf(report_text)
-        upload_pdf_to_storage(u["id"], pdf_bytes)
+        public_url = upload_pdf_to_storage(u["id"], pdf_bytes)
         await query.message.reply_document(
-            document=InputFile(io.BytesIO(pdf_bytes), filename="Karta_Prednaznacheniya.pdf"),
+            document=public_url,
+            filename="Karta_Prednaznacheniya.pdf",
             caption="🔮 Карта предназначения готова!",
         )
     except Exception as e:
@@ -262,4 +263,5 @@ if __name__ == "__main__":
 
     logger.info("Bot started")
     app.run_polling()
+
 
