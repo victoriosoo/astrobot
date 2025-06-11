@@ -30,6 +30,7 @@ pprint.pprint({k: v for k, v in os.environ.items() if k.startswith("SUPABASE")})
 # ──────────────────────────────────────────────────────────
 from supabase import create_client, Client
 from openai import OpenAI
+from reportlab.lib.pagesizes import A4
 from reportlab.pdfgen import canvas
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
