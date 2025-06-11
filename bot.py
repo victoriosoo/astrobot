@@ -1,12 +1,9 @@
 import os
 import io
-import time
-import uuid
 import logging
 import asyncio
 from datetime import datetime
 from textwrap import wrap
-from pathlib import Path
 
 from dotenv import load_dotenv
 from telegram import (
@@ -16,7 +13,6 @@ from telegram import (
     ReplyKeyboardMarkup,
     InlineKeyboardMarkup,
     InlineKeyboardButton,
-    InputFile,
 )
 from telegram.ext import (
     ApplicationBuilder,
@@ -27,19 +23,16 @@ from telegram.ext import (
     ConversationHandler,
     filters,
 )
+
 from supabase import create_client, Client
 from openai import OpenAI
 from reportlab.pdfgen import canvas
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 
-# ──────────────── env / logger ────────────────
 load_dotenv()
 SUPABASE_URL = os.getenv("SUPABASE_URL")
-SUPABASE_KEY = (
-    os.getenv("SUPABASE_KEY") or
-    os.getenv("SUPABASE_SERVICE_ROLE_KEY")
-)
+SUPABASE_KEY = os.getenv("SUPABASE_KEY") or os.getenv("SUPABASE_SERVICE_ROLE_KEY")
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 TG_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
@@ -48,23 +41,19 @@ OPENAI = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# ──────────────── fonts ────────────────
-font_path = Path(__file__).with_name("DejaVuSans.ttf")
-pdfmetrics.registerFont(TTFont("DejaVuSans", str(font_path)))
-
-# ──────────────── conversation states ────────────────
 READY, DATE, TIME, LOCATION = range(4)
 
-# ──────────────── helpers ────────────────
+pdfmetrics.registerFont(TTFont("DejaVuSans", "DejaVuSans.ttf"))
+
 def text_to_pdf(text: str) -> bytes:
     buf = io.BytesIO()
     c = canvas.Canvas(buf)
-    c.setFont("DejaVuSans", 12)
+    c.setFont("DejaVuSans", 11)
     y = 800
     for line in wrap(text, 90):
         if y < 40:
             c.showPage()
-            c.setFont("DejaVuSans", 12)
+            c.setFont("DejaVuSans", 11)
             y = 800
         c.drawString(40, y, line)
         y -= 14
@@ -74,14 +63,12 @@ def text_to_pdf(text: str) -> bytes:
 
 def upload_pdf_to_storage(user_id: str, pdf_bytes: bytes) -> str:
     bucket = supabase.storage.from_("destiny-reports")
-    fname = f"{user_id}/{int(time.time())}_{uuid.uuid4().hex}.pdf"
-    bucket.upload(
-    fname,
-    pdf_bytes,
-    file_options={"content-type": "application/pdf"},
-    upsert=True
-)
-
+    fname = f"{user_id}.pdf"
+    try:
+        bucket.remove([fname])
+    except Exception:
+        pass
+    bucket.upload(fname, pdf_bytes)
     return bucket.get_public_url(fname)
 
 def build_destiny_prompt(name, date, time_str, city, country) -> list[dict]:
@@ -108,27 +95,31 @@ def build_destiny_prompt(name, date, time_str, city, country) -> list[dict]:
 """
     return [{"role": "system", "content": sys}, {"role": "user", "content": user}]
 
-# ──────────────── /start flow ────────────────
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     tg_id = user.id
     name = user.first_name
-
     if not supabase.table("users").select("id").eq("tg_id", tg_id).execute().data:
         supabase.table("users").insert({"tg_id": tg_id, "name": name}).execute()
-
     await update.message.reply_text(
-        "Привет! Я CosmoAstro — твой астрологический навигатор 🌌\n\n"
-        "Здесь ты можешь:\n"
-        "✨ Получить натальную карту\n"
-        "🌙 Узнать влияние луны\n"
-        "🪐 Понять дни действия и отдыха\n\n"
+        "Привет! Я CosmoAstro — твой астрологический навигатор 🌌
+
+"
+        "Здесь ты можешь:
+"
+        "✨ Получить натальную карту
+"
+        "🌙 Узнать влияние луны
+"
+        "🪐 Понять дни действия и отдыха
+
+"
         "Всё, что нужно — ответить на 3 вопроса."
     )
     await asyncio.sleep(5)
-
     await update.message.reply_text(
-        "Готов узнать о себе больше?\nНажми «Готов», и мы начнём.",
+        "Готов узнать о себе больше?
+Нажми «Готов», и мы начнём.",
         reply_markup=ReplyKeyboardMarkup([[KeyboardButton("🔮 Готов")]], resize_keyboard=True),
     )
     return READY
@@ -164,21 +155,20 @@ async def save_profile(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if len(parts) < 2:
         await update.message.reply_text("Формат: Страна, Город. Пример: Латвия, Рига")
         return LOCATION
-
     country, city = parts[0], parts[1]
     user = update.effective_user
-    supabase.table("users").update({
-        "birth_date": str(context.user_data["birth_date"]),
-        "birth_time": context.user_data["birth_time"].strftime("%H:%M"),
-        "birth_country": country,
-        "birth_city": city,
-    }).eq("tg_id", user.id).execute()
-
+    supabase.table("users").update(
+        {
+            "birth_date": str(context.user_data["birth_date"]),
+            "birth_time": context.user_data["birth_time"].strftime("%H:%M"),
+            "birth_country": country,
+            "birth_city": city,
+        }
+    ).eq("tg_id", user.id).execute()
     await update.message.reply_text(
-        "Спасибо! Данные сохранены.\nВыбери, что тебе интересно:",
-        reply_markup=ReplyKeyboardMarkup(
-            [["📜 Карта предназначения"]], resize_keyboard=True
-        ),
+        "Спасибо! Данные сохранены.
+Выбери, что тебе интересно:",
+        reply_markup=ReplyKeyboardMarkup([["📜 Карта предназначения"]], resize_keyboard=True),
     )
     return ConversationHandler.END
 
@@ -186,16 +176,18 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("Окей, если что — /start", reply_markup=ReplyKeyboardRemove())
     return ConversationHandler.END
 
-# ──────────────── destiny card flow ────────────────
 async def destiny_product(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         "Карта предназначения — персональное послание о твоей миссии, талантах "
-        "и сферах роста. Поможет принимать решения в гармонии с собой.\n\n"
+        "и сферах роста. Поможет принимать решения в гармонии с собой.
+
+"
         "Через 5 секунд появится кнопка, чтобы получить карту."
     )
     await asyncio.sleep(5)
     await update.message.reply_text(
-        "Готов открыть свой маршрут к успеху и свободе?\n"
+        "Готов открыть свой маршрут к успеху и свободе?
+"
         "Нажми «Получить карту»!",
         reply_markup=InlineKeyboardMarkup(
             [[InlineKeyboardButton("🔮 Получить карту", callback_data="destiny_card")]]
@@ -206,14 +198,12 @@ async def destiny_card_callback(update: Update, context: ContextTypes.DEFAULT_TY
     query = update.callback_query
     await query.answer()
     await query.message.reply_text("⏳ Формируем карту… это займёт около минуты.")
-
     tg_id = query.from_user.id
     user_res = supabase.table("users").select("*").eq("tg_id", tg_id).execute()
     if not user_res.data:
         await query.message.reply_text("Не найден профиль. Пройди /start.")
         return
     u = user_res.data[0]
-
     messages = build_destiny_prompt(
         name=u.get("name", "Друг"),
         date=datetime.strptime(u["birth_date"], "%Y-%m-%d").strftime("%d.%m.%Y"),
@@ -233,24 +223,24 @@ async def destiny_card_callback(update: Update, context: ContextTypes.DEFAULT_TY
         logger.error("GPT error: %s", e)
         await query.message.reply_text("Ошибка генерации. Попробуй позже.")
         return
-
     try:
         pdf_bytes = text_to_pdf(report_text)
-        upload_pdf_to_storage(u["id"], pdf_bytes)
+        public_url = upload_pdf_to_storage(u["id"], pdf_bytes)
         await query.message.reply_document(
-            document=InputFile(io.BytesIO(pdf_bytes), filename="Karta_Prednaznacheniya.pdf"),
+            document=public_url,
+            filename="Karta_Prednaznacheniya.pdf",
             caption="🔮 Карта предназначения готова!",
         )
     except Exception as e:
         logger.error("PDF/upload error: %s", e)
         await query.message.reply_text(
-            "Карта готова, но файл не прикрепился 😔. Вот текст:\n\n" + report_text
+            "Карта готова, но файл не прикрепился 😔. Вот текст:
+
+" + report_text
         )
 
-# ──────────────── launch ────────────────
 if __name__ == "__main__":
     app = ApplicationBuilder().token(TG_TOKEN).build()
-
     conv_handler = ConversationHandler(
         entry_points=[CommandHandler("start", start)],
         states={
@@ -261,10 +251,8 @@ if __name__ == "__main__":
         },
         fallbacks=[CommandHandler("cancel", cancel)],
     )
-
     app.add_handler(conv_handler)
     app.add_handler(MessageHandler(filters.Regex(r"^📜 Карта предназначения$"), destiny_product))
     app.add_handler(CallbackQueryHandler(destiny_card_callback, pattern=r"^destiny_card$"))
-
     logger.info("Bot started")
     app.run_polling()
