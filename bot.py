@@ -50,27 +50,24 @@ OPENAI = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-pdfmetrics.registerFont(TTFont("DejaVuSans", "DejaVuSans.ttf"))
+pdfmetrics.registerFont(TTFont("DejaVu", "DejaVuSans.ttf"))
 
 # ──────────────── conversation states ────────────────
 READY, DATE, TIME, LOCATION = range(4)
 
 # ──────────────── helpers ────────────────
 def text_to_pdf(text: str) -> bytes:
-    """Генерируем PDF (A4) из plain-текста, используя DejaVuSans."""
     buf = io.BytesIO()
-    c = canvas.Canvas(buf, pagesize=A4)
-    c.setFont("DejaVuSans", 11)
-
+    c = canvas.Canvas(buf)
+    c.setFont("DejaVu", 12)  # Устанавливаем шрифт с поддержкой кириллицы
     y = 800
     for line in wrap(text, 90):
-        if y < 40:               # новая страница
+        if y < 40:
             c.showPage()
-            c.setFont("DejaVuSans", 11)
+            c.setFont("DejaVu", 12)
             y = 800
         c.drawString(40, y, line)
         y -= 14
-
     c.save()
     buf.seek(0)
     return buf.read()
