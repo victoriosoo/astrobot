@@ -31,6 +31,11 @@ pprint.pprint({k: v for k, v in os.environ.items() if k.startswith("SUPABASE")})
 from supabase import create_client, Client
 from openai import OpenAI
 from reportlab.pdfgen import canvas
+from reportlab.pdfbase import pdfmetrics
+from reportlab.pdfbase.ttfonts import TTFont
+
+FONT_PATH = os.path.join(os.path.dirname(__file__), "DejaVuSans.ttf")
+pdfmetrics.registerFont(TTFont("DejaVuSans", FONT_PATH))
 
 # ──────────────── env / logger ────────────────
 load_dotenv()
@@ -52,16 +57,21 @@ READY, DATE, TIME, LOCATION = range(4)
 
 # ──────────────── helpers ────────────────
 def text_to_pdf(text: str) -> bytes:
-    """Generate simple PDF (A4) from plain text and return bytes."""
     buf = io.BytesIO()
-    c = canvas.Canvas(buf)
-    y = 800
+    c = canvas.Canvas(buf, pagesize=A4)
+    c.setFont("DejaVuSans", 12)
+
+    page_width, page_height = A4
+    y = page_height - 40
+
     for line in wrap(text, 90):
         if y < 40:
             c.showPage()
-            y = 800
+            c.setFont("DejaVuSans", 12)
+            y = page_height - 40
         c.drawString(40, y, line)
         y -= 14
+
     c.save()
     buf.seek(0)
     return buf.read()
