@@ -75,7 +75,13 @@ def text_to_pdf(text: str) -> bytes:
 def upload_pdf_to_storage(user_id: str, pdf_bytes: bytes) -> str:
     bucket = supabase.storage.from_("destiny-reports")
     fname = f"{user_id}/{int(time.time())}_{uuid.uuid4().hex}.pdf"
-    bucket.upload(fname, pdf_bytes, file_options={"content-type": "application/pdf"}, options={"upsert": True})
+    bucket.upload(
+    fname,
+    pdf_bytes,
+    file_options={"content-type": "application/pdf"},
+    upsert=True
+)
+
     return bucket.get_public_url(fname)
 
 def build_destiny_prompt(name, date, time_str, city, country) -> list[dict]:
