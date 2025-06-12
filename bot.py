@@ -2,7 +2,6 @@ import os
 import io
 import logging
 import asyncio
-import uuid
 from datetime import datetime
 from textwrap import wrap
 
@@ -80,11 +79,8 @@ def text_to_pdf(text: str) -> bytes:
 
 def upload_pdf_to_storage(user_id: str, pdf_bytes: bytes) -> str:
     bucket = supabase.storage.from_("destiny-reports")
-    
-    # Случайный UUID, можно также использовать datetime
-    fname = f"{user_id}_{uuid.uuid4().hex}.pdf"
-    
-    bucket.upload(fname, pdf_bytes, {"content-type": "application/pdf", "upsert": True})
+    fname = f"{user_id}.pdf"
+    bucket.upload(fname, pdf_bytes)
     return bucket.get_public_url(fname)
 
 def build_destiny_prompt(name, date, time_str, city, country) -> list[dict]:
