@@ -87,28 +87,26 @@ def upload_pdf_to_storage(user_id: str, pdf_bytes: bytes) -> str:
 def build_destiny_prompt(name, date, time_str, city, country) -> list[dict]:
     # 1) system-prompt: просим модель отвечать по-английски
     sys = (
-        "You are an experienced astro-psychologist. "
-        "Explain in a friendly, upbeat tone, addressing the client informally (“you”). "
-        "Do NOT mention any model or AI limitations. Write in English."
-    )
+    "Ты опытный астропсихолог. Объясняй дружелюбно, живо и без упоминания, что ты ИИ. "
+    "Пиши на русском языке."
+)
 
-    # 2) user-prompt: англ. инструкция + структура рассуждения
-    user = f"""Natal data for analysis:
-Name: {name}
-Date of birth: {date}
-Time of birth: {time_str}
-Place of birth: {city}, {country}
+user = f"""Данные для анализа натальной карты:
+Имя: {name}
+Дата рождения: {date}
+Время рождения: {time_str}
+Место рождения: {city}, {country}
 
-Create a “Destiny Map” (650–800 words).
+Составь «Карту предназначения» (объём 650–800 слов).
 
-Structure:
-1. 🎯 Soul Mission – 5–7 sentences.
-2. 💎 Inborn Talents – bullet list of 4–5 items.
-3. 💼 Career & Money – 5–7 sentences.
-4. ⚠️ Possible Blocks – 4–5 items, each with a short tip.
-5. 🛠 Recommendations – 3 concrete steps.
+Структура:
+1. 🎯 Предназначение души — 5–7 предложений.
+2. 💎 Врожденные таланты — 4–5 пунктов.
+3. 💼 Реализация и деньги — 5–7 предложений.
+4. ⚠️ Возможные блоки — 4–5 пунктов с короткими подсказками.
+5. 🛠 Рекомендации — 3 конкретных шага.
 
-Finish with a closing paragraph on how to apply these insights in real life.
+Заверши абзацем: как применять эти знания в повседневной жизни.
 """
     return [{"role": "system", "content": sys}, {"role": "user", "content": user}]
 
