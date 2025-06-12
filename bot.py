@@ -2,6 +2,7 @@ import os
 import io
 import logging
 import asyncio
+import time
 from datetime import datetime
 from textwrap import wrap
 
@@ -79,7 +80,7 @@ def text_to_pdf(text: str) -> bytes:
 
 def upload_pdf_to_storage(user_id: str, pdf_bytes: bytes) -> str:
     bucket = supabase.storage.from_("destiny-reports")
-    fname = f"{user_id}.pdf"
+    fname = f"{user_id}_{int(time.time())}.pdf"
     bucket.upload(fname, pdf_bytes)
     return bucket.get_public_url(fname)
 
