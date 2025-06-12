@@ -64,29 +64,32 @@ READY, DATE, TIME, LOCATION = range(4)
 def text_to_pdf(text: str) -> bytes:
     buf = io.BytesIO()
 
-    # создаём PDF-документ
     doc = SimpleDocTemplate(buf, pagesize=A4, leftMargin=40, rightMargin=40, topMargin=50, bottomMargin=50)
 
-    # подключаем стиль со шрифтом
     styles = getSampleStyleSheet()
     styles.add(ParagraphStyle(
         name='Body',
         fontName='DejaVuSans',
         fontSize=12,
         leading=16,
-        spaceAfter=10,
+        spaceAfter=8,
         alignment=TA_LEFT
     ))
 
     story = []
 
-    # разбиваем по двойным переносам (абзацы)
+    # блоки разделены двумя \n, внутри — одинарные
     for block in text.strip().split('\n\n'):
-        story.append(Paragraph(block.replace("\n", "<br/>"), styles["Body"]))
-        story.append(Spacer(1, 8))
+        lines = block.strip().split('\n')
+        for line in lines:
+            if line.strip():
+                story.append(Paragraph(line.strip(), styles["Body"]))
+                story.append(Spacer(1, 4))
+        story.append(Spacer(1, 12))  # отступ между блоками
 
     doc.build(story)
     return buf.getvalue()
+
 def upload_pdf_to_storage(user_id: str, pdf_bytes: bytes) -> str:
     bucket = supabase.storage.from_("destiny-reports")
     fname = f"{user_id}_{int(time.time())}.pdf"
@@ -239,7 +242,7 @@ async def destiny_card_callback(update: Update, context: ContextTypes.DEFAULT_TY
         resp = OPENAI.chat.completions.create(
             model="gpt-4-turbo",
             messages=messages,
-            max_tokens=1100,
+            max_tokens=1600,
             temperature=0.9,
         )
         report_text = resp.choices[0].message.content.strip()
