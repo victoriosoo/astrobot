@@ -31,8 +31,11 @@ pprint.pprint({k: v for k, v in os.environ.items() if k.startswith("SUPABASE")})
 # ──────────────────────────────────────────────────────────
 from supabase import create_client, Client
 from openai import OpenAI
+
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.enums import TA_LEFT
 from reportlab.lib.pagesizes import A4
-from reportlab.pdfgen import canvas
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 
@@ -60,24 +63,30 @@ READY, DATE, TIME, LOCATION = range(4)
 # ──────────────── helpers ────────────────
 def text_to_pdf(text: str) -> bytes:
     buf = io.BytesIO()
-    c = canvas.Canvas(buf, pagesize=A4)
-    c.setFont("DejaVuSans", 12)
 
-    page_width, page_height = A4
-    y = page_height - 40
+    # создаём PDF-документ
+    doc = SimpleDocTemplate(buf, pagesize=A4, leftMargin=40, rightMargin=40, topMargin=50, bottomMargin=50)
 
-    for line in wrap(text, 90):
-        if y < 40:
-            c.showPage()
-            c.setFont("DejaVuSans", 12)
-            y = page_height - 40
-        c.drawString(40, y, line)
-        y -= 14
+    # подключаем стиль со шрифтом
+    styles = getSampleStyleSheet()
+    styles.add(ParagraphStyle(
+        name='Body',
+        fontName='DejaVuSans',
+        fontSize=12,
+        leading=16,
+        spaceAfter=10,
+        alignment=TA_LEFT
+    ))
 
-    c.save()
-    buf.seek(0)
-    return buf.read()
+    story = []
 
+    # разбиваем по двойным переносам (абзацы)
+    for block in text.strip().split('\n\n'):
+        story.append(Paragraph(block.replace("\n", "<br/>"), styles["Body"]))
+        story.append(Spacer(1, 8))
+
+    doc.build(story)
+    return buf.getvalue()
 def upload_pdf_to_storage(user_id: str, pdf_bytes: bytes) -> str:
     bucket = supabase.storage.from_("destiny-reports")
     fname = f"{user_id}_{int(time.time())}.pdf"
