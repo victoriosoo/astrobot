@@ -72,20 +72,40 @@ def text_to_pdf(text: str) -> bytes:
         fontName='DejaVuSans',
         fontSize=12,
         leading=16,
+        spaceAfter=6,
+        alignment=TA_LEFT,
+    ))
+    styles.add(ParagraphStyle(
+        name='Header',
+        fontName='DejaVuSans',
+        fontSize=14,
+        leading=18,
+        spaceBefore=12,
         spaceAfter=8,
-        alignment=TA_LEFT
+        alignment=TA_LEFT,
+        bulletFontName='DejaVuSans',
     ))
 
     story = []
 
-    # блоки разделены двумя \n, внутри — одинарные
     for block in text.strip().split('\n\n'):
-        lines = block.strip().split('\n')
-        for line in lines:
-            if line.strip():
-                story.append(Paragraph(line.strip(), styles["Body"]))
+        block = block.strip()
+
+        # если заголовок: начинается с «**» и заканчивается «**»
+        if block.startswith("**") and block.endswith("**") and len(block) < 100:
+            clean_title = block.strip("*").strip()
+            story.append(Paragraph(clean_title, styles["Header"]))
+        else:
+            lines = block.split('\n')
+            for line in lines:
+                line = line.strip()
+                if not line:
+                    continue
+                # убрать жирность ** в списках/тексте
+                line = line.replace("**", "")
+                story.append(Paragraph(line, styles["Body"]))
                 story.append(Spacer(1, 4))
-        story.append(Spacer(1, 12))  # отступ между блоками
+        story.append(Spacer(1, 10))
 
     doc.build(story)
     return buf.getvalue()
