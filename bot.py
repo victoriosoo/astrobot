@@ -2,6 +2,7 @@ import os
 import io
 import logging
 import asyncio
+import uuid
 from datetime import datetime
 from textwrap import wrap
 
@@ -79,35 +80,40 @@ def text_to_pdf(text: str) -> bytes:
 
 def upload_pdf_to_storage(user_id: str, pdf_bytes: bytes) -> str:
     bucket = supabase.storage.from_("destiny-reports")
-    fname = f"{user_id}.pdf"
-    bucket.upload(fname, pdf_bytes)
+    
+    # Случайный UUID, можно также использовать datetime
+    fname = f"{user_id}_{uuid.uuid4().hex}.pdf"
+    
+    bucket.upload(fname, pdf_bytes, {"content-type": "application/pdf", "upsert": True})
     return bucket.get_public_url(fname)
 
 def build_destiny_prompt(name, date, time_str, city, country) -> list[dict]:
-    """Return messages payload for chat completions."""
+    # 1) system-prompt: просим модель отвечать по-английски
     sys = (
-        "Ты — опытный астропсихолог. Объясняй понятно, дружелюбно, на «ты». "
-        "Не упоминай ограничения модели и что ты ИИ."
+        "You are an experienced astro-psychologist. "
+        "Explain in a friendly, upbeat tone, addressing the client informally (“you”). "
+        "Do NOT mention any model or AI limitations. Write in English."
     )
-    user = f"""Данные для натального анализа:
-Имя: {name}
-Дата рождения: {date}
-Время рождения: {time_str}
-Место рождения: {city}, {country}
 
-Составь «Карту предназначения» (650–800 слов).
+    # 2) user-prompt: англ. инструкция + структура рассуждения
+    user = f"""Natal data for analysis:
+Name: {name}
+Date of birth: {date}
+Time of birth: {time_str}
+Place of birth: {city}, {country}
 
-Структура:
-1. 🎯 Миссия души – 5-7 предложений.
-2. 💎 Врождённые таланты – маркированный список 4-5 пунктов.
-3. 💼 Профессия и деньги – 5-7 предложений.
-4. ⚠️ Возможные блоки – 4-5 пунктов с коротким советом.
-5. 🛠 Рекомендации – 3 конкретных шага.
+Create a “Destiny Map” (650–800 words).
 
-Заверши последним советом + добавь финальный абзац «Как применять знания на практике».
+Structure:
+1. 🎯 Soul Mission – 5–7 sentences.
+2. 💎 Inborn Talents – bullet list of 4–5 items.
+3. 💼 Career & Money – 5–7 sentences.
+4. ⚠️ Possible Blocks – 4–5 items, each with a short tip.
+5. 🛠 Recommendations – 3 concrete steps.
+
+Finish with a closing paragraph on how to apply these insights in real life.
 """
     return [{"role": "system", "content": sys}, {"role": "user", "content": user}]
-
 # ──────────────── /start flow ────────────────
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
