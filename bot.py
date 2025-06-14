@@ -72,7 +72,7 @@ def text_to_pdf(text: str) -> bytes:
         fontName='DejaVuSans',
         fontSize=12,
         leading=16,
-        spaceAfter=6,
+        spaceAfter=8,
         alignment=TA_LEFT,
     ))
     styles.add(ParagraphStyle(
@@ -80,10 +80,11 @@ def text_to_pdf(text: str) -> bytes:
         fontName='DejaVuSans',
         fontSize=14,
         leading=18,
-        spaceBefore=12,
-        spaceAfter=8,
+        spaceBefore=14,
+        spaceAfter=10,
         alignment=TA_LEFT,
-        bulletFontName='DejaVuSans',
+        textColor='black',
+        bold=True,
     ))
 
     story = []
@@ -91,18 +92,20 @@ def text_to_pdf(text: str) -> bytes:
     for block in text.strip().split('\n\n'):
         block = block.strip()
 
-        # если заголовок: начинается с «**» и заканчивается «**»
-        if block.startswith("**") and block.endswith("**") and len(block) < 100:
-            clean_title = block.strip("*").strip()
+        # если заголовок — строка с '###' в начале
+        if block.startswith("###"):
+            # убираем ### и emoji
+            clean_title = block.replace("###", "").strip()
+            clean_title = clean_title.strip(" ⚠️")  # убираем emoji вручную
             story.append(Paragraph(clean_title, styles["Header"]))
         else:
-            lines = block.split('\n')
+            # убираем ** и * из текста
+            block_clean = block.replace("**", "").replace("*", "")
+            lines = block_clean.split("\n")
             for line in lines:
                 line = line.strip()
                 if not line:
                     continue
-                # убрать жирность ** в списках/тексте
-                line = line.replace("**", "")
                 story.append(Paragraph(line, styles["Body"]))
                 story.append(Spacer(1, 4))
         story.append(Spacer(1, 10))
