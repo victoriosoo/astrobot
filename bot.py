@@ -3,7 +3,6 @@ import io
 import logging
 import asyncio
 import time
-import re
 from datetime import datetime
 from textwrap import wrap
 
@@ -37,9 +36,13 @@ from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.enums import TA_LEFT
 from reportlab.lib.pagesizes import A4
+from reportlab.pdfbase import pdfmetrics
+from reportlab.pdfbase.ttfonts import TTFont
 
 FONT_PATH = os.path.join(os.path.dirname(__file__), "DejaVuSans.ttf")
+FONT_BOLD_PATH = os.path.join(os.path.dirname(__file__), "DejaVuSans-Bold.ttf")
 pdfmetrics.registerFont(TTFont("DejaVuSans", FONT_PATH))
+pdfmetrics.registerFont(TTFont("DejaVuSans-Bold", FONT_BOLD_PATH))
 
 # ──────────────── env / logger ────────────────
 load_dotenv()
@@ -62,37 +65,49 @@ READY, DATE, TIME, LOCATION = range(4)
 # ──────────────── helpers ────────────────
 def text_to_pdf(text: str) -> bytes:
     buf = io.BytesIO()
-    doc = SimpleDocTemplate(buf, pagesize=A4,
-                            leftMargin=40, rightMargin=40,
-                            topMargin=50, bottomMargin=50)
+
+    doc = SimpleDocTemplate(buf, pagesize=A4, leftMargin=40, rightMargin=40, topMargin=50, bottomMargin=50)
 
     styles = getSampleStyleSheet()
-    styles.add(ParagraphStyle("Body", fontName="DejaVuSans",
-                              fontSize=12, leading=16, spaceAfter=6))
-    styles.add(ParagraphStyle("Header", fontName="DejaVuSans",
-                              fontSize=14, leading=18, spaceBefore=12,
-                              spaceAfter=8, alignment=TA_LEFT, bold=True))
+    styles.add(ParagraphStyle(
+        name='Body',
+        fontName='DejaVuSans',
+        fontSize=12,
+        leading=16,
+        spaceAfter=6,
+        alignment=TA_LEFT,
+    ))
+    styles.add(ParagraphStyle(
+    name='Header',
+    fontName='DejaVuSans-Bold',  # теперь жирный!
+    fontSize=14,
+    leading=18,
+    spaceBefore=12,
+    spaceAfter=8,
+    alignment=TA_LEFT,
+    bulletFontName='DejaVuSans-Bold',
+))
 
     story = []
-    for block in text.strip().split("\n\n"):
+
+    for block in text.strip().split('\n\n'):
         block = block.strip()
-        if not block:
-            continue
 
-        # если строка без пробелов и длиной <40 — считаем заголовком
-        if "\n" not in block and len(block) < 40:
-            story.append(Paragraph(block, styles["Header"]))
+        # если заголовок: начинается с «**» и заканчивается «**»
+        if block.startswith("**") and block.endswith("**") and len(block) < 100:
+            clean_title = block.strip("*").strip()
+            story.append(Paragraph(clean_title, styles["Header"]))
         else:
-            # маркдаун уже убрали, но подчистим случайные ** **
-            clean = re.sub(r"\*{1,2}", "", block)
-            # bullet-списки будут начинаться с "- "
-            clean = clean.replace("- ", "• ")
-            for line in clean.split("\n"):
-                if line.strip():
-                    story.append(Paragraph(line.strip(), styles["Body"]))
-            story.append(Spacer(1, 4))
-
-        story.append(Spacer(1, 8))
+            lines = block.split('\n')
+            for line in lines:
+                line = line.strip()
+                if not line:
+                    continue
+                # убрать жирность ** в списках/тексте
+                line = line.replace("**", "")
+                story.append(Paragraph(line, styles["Body"]))
+                story.append(Spacer(1, 4))
+        story.append(Spacer(1, 10))
 
     doc.build(story)
     return buf.getvalue()
@@ -118,11 +133,11 @@ def build_destiny_prompt(name, date, time_str, city, country) -> list[dict]:
 Составь «Карту предназначения» (650–800 слов).
 
 Структура:
-1. 🎯 Миссия души – 5-7 предложений.
-2. 💎 Врождённые таланты – маркированный список 4-5 пунктов.
-3. 💼 Профессия и деньги – 5-7 предложений.
-4. ⚠️ Возможные блоки – 4-5 пунктов с коротким советом.
-5. 🛠 Рекомендации – 3 конкретных шага.
+1. Миссия души – 5-7 предложений.
+2. Врождённые таланты – маркированный список 4-5 пунктов.
+3. Профессия и деньги – 5-7 предложений.
+4. Возможные блоки – 4-5 пунктов с коротким советом.
+5. Рекомендации – 3 конкретных шага.
 
 Заверши последним советом + добавь финальный абзац «Как применять знания на практике».
 """
