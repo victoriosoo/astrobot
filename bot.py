@@ -93,13 +93,16 @@ def text_to_pdf(text: str) -> bytes:
 
     for block in text.strip().split('\n\n'):
         block = block.strip()
-        # Это заголовок, если:
-        # - начинается с "1. ...", "2. ...", и т.д.
-        # - или состоит только из букв/цифр/пробелов и короткий (< 40 символов)
-        if (
-            re.match(r"^\d+\.\s", block) and len(block) < 40
-        ) or (
-            len(block) < 40 and re.match(r"^[А-Яа-яA-Za-z\s\-]+$", block)
+        # Если блок начинается с одного или нескольких "#", это точно заголовок
+        if re.match(r"^#+\s*", block):
+            clean = re.sub(r"^#+\s*", "", block)
+            story.append(Paragraph(clean, styles["Header"]))
+        # Либо короткая строка без спецсимволов (как до этого)
+        elif (
+            len(block) < 40
+            and not any(ch in block for ch in "-*:;")
+            and not re.match(r"^[-•]", block)
+            and block != ""
         ):
             story.append(Paragraph(block, styles["Header"]))
         else:
