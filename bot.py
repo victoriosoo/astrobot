@@ -3,6 +3,7 @@ import io
 import logging
 import asyncio
 import time
+import re
 from datetime import datetime
 from textwrap import wrap
 
@@ -36,8 +37,6 @@ from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.enums import TA_LEFT
 from reportlab.lib.pagesizes import A4
-from reportlab.pdfbase import pdfmetrics
-from reportlab.pdfbase.ttfonts import TTFont
 
 FONT_PATH = os.path.join(os.path.dirname(__file__), "DejaVuSans.ttf")
 pdfmetrics.registerFont(TTFont("DejaVuSans", FONT_PATH))
@@ -63,52 +62,37 @@ READY, DATE, TIME, LOCATION = range(4)
 # ──────────────── helpers ────────────────
 def text_to_pdf(text: str) -> bytes:
     buf = io.BytesIO()
-
-    doc = SimpleDocTemplate(buf, pagesize=A4, leftMargin=40, rightMargin=40, topMargin=50, bottomMargin=50)
+    doc = SimpleDocTemplate(buf, pagesize=A4,
+                            leftMargin=40, rightMargin=40,
+                            topMargin=50, bottomMargin=50)
 
     styles = getSampleStyleSheet()
-    styles.add(ParagraphStyle(
-        name='Body',
-        fontName='DejaVuSans',
-        fontSize=12,
-        leading=16,
-        spaceAfter=8,
-        alignment=TA_LEFT,
-    ))
-    styles.add(ParagraphStyle(
-        name='Header',
-        fontName='DejaVuSans',
-        fontSize=14,
-        leading=18,
-        spaceBefore=14,
-        spaceAfter=10,
-        alignment=TA_LEFT,
-        textColor='black',
-        bold=True,
-    ))
+    styles.add(ParagraphStyle("Body", fontName="DejaVuSans",
+                              fontSize=12, leading=16, spaceAfter=6))
+    styles.add(ParagraphStyle("Header", fontName="DejaVuSans",
+                              fontSize=14, leading=18, spaceBefore=12,
+                              spaceAfter=8, alignment=TA_LEFT, bold=True))
 
     story = []
-
-    for block in text.strip().split('\n\n'):
+    for block in text.strip().split("\n\n"):
         block = block.strip()
+        if not block:
+            continue
 
-        # если заголовок — строка с '###' в начале
-        if block.startswith("###"):
-            # убираем ### и emoji
-            clean_title = block.replace("###", "").strip()
-            clean_title = clean_title.strip(" ⚠️")  # убираем emoji вручную
-            story.append(Paragraph(clean_title, styles["Header"]))
+        # если строка без пробелов и длиной <40 — считаем заголовком
+        if "\n" not in block and len(block) < 40:
+            story.append(Paragraph(block, styles["Header"]))
         else:
-            # убираем ** и * из текста
-            block_clean = block.replace("**", "").replace("*", "")
-            lines = block_clean.split("\n")
-            for line in lines:
-                line = line.strip()
-                if not line:
-                    continue
-                story.append(Paragraph(line, styles["Body"]))
-                story.append(Spacer(1, 4))
-        story.append(Spacer(1, 10))
+            # маркдаун уже убрали, но подчистим случайные ** **
+            clean = re.sub(r"\*{1,2}", "", block)
+            # bullet-списки будут начинаться с "- "
+            clean = clean.replace("- ", "• ")
+            for line in clean.split("\n"):
+                if line.strip():
+                    story.append(Paragraph(line.strip(), styles["Body"]))
+            story.append(Spacer(1, 4))
+
+        story.append(Spacer(1, 8))
 
     doc.build(story)
     return buf.getvalue()
