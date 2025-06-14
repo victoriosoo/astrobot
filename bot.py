@@ -3,6 +3,7 @@ import io
 import logging
 import asyncio
 import time
+import re
 from datetime import datetime
 from textwrap import wrap
 
@@ -65,8 +66,9 @@ READY, DATE, TIME, LOCATION = range(4)
 # ──────────────── helpers ────────────────
 def text_to_pdf(text: str) -> bytes:
     buf = io.BytesIO()
-
-    doc = SimpleDocTemplate(buf, pagesize=A4, leftMargin=40, rightMargin=40, topMargin=50, bottomMargin=50)
+    doc = SimpleDocTemplate(
+        buf, pagesize=A4, leftMargin=40, rightMargin=40, topMargin=50, bottomMargin=50
+    )
 
     styles = getSampleStyleSheet()
     styles.add(ParagraphStyle(
@@ -82,36 +84,33 @@ def text_to_pdf(text: str) -> bytes:
         fontName='DejaVuSans-Bold',
         fontSize=14,
         leading=18,
-        spaceBefore=12,
-        spaceAfter=8,
+        spaceBefore=14,
+        spaceAfter=10,
         alignment=TA_LEFT,
-        bulletFontName='DejaVuSans-Bold',
     ))
 
     story = []
 
     for block in text.strip().split('\n\n'):
         block = block.strip()
-
-        # Новая логика заголовков: короткая строка (<40), нет точки в середине, либо начинается с цифры + точка
+        # Это заголовок, если:
+        # - начинается с "1. ...", "2. ...", и т.д.
+        # - или состоит только из букв/цифр/пробелов и короткий (< 40 символов)
         if (
-            block.startswith("**") and block.endswith("**") and len(block) < 100
-            or (len(block) < 40 and "\n" not in block and not "." in block[1:])
-            or (len(block) < 40 and block[:2].isdigit() and block[2:3] == ".")
+            re.match(r"^\d+\.\s", block) and len(block) < 40
+        ) or (
+            len(block) < 40 and re.match(r"^[А-Яа-яA-Za-z\s\-]+$", block)
         ):
-            clean_title = block.strip("*").strip()
-            story.append(Paragraph(clean_title, styles["Header"]))
+            story.append(Paragraph(block, styles["Header"]))
         else:
-            lines = block.split('\n')
-            for line in lines:
+            for line in block.split('\n'):
                 line = line.strip()
                 if not line:
                     continue
-                line = line.replace("**", "")
+                line = line.replace("**", "").replace("_", "")
                 story.append(Paragraph(line, styles["Body"]))
                 story.append(Spacer(1, 4))
         story.append(Spacer(1, 10))
-
     doc.build(story)
     return buf.getvalue()
 
