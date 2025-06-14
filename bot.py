@@ -78,23 +78,27 @@ def text_to_pdf(text: str) -> bytes:
         alignment=TA_LEFT,
     ))
     styles.add(ParagraphStyle(
-    name='Header',
-    fontName='DejaVuSans-Bold',  # теперь жирный!
-    fontSize=14,
-    leading=18,
-    spaceBefore=12,
-    spaceAfter=8,
-    alignment=TA_LEFT,
-    bulletFontName='DejaVuSans-Bold',
-))
+        name='Header',
+        fontName='DejaVuSans-Bold',
+        fontSize=14,
+        leading=18,
+        spaceBefore=12,
+        spaceAfter=8,
+        alignment=TA_LEFT,
+        bulletFontName='DejaVuSans-Bold',
+    ))
 
     story = []
 
     for block in text.strip().split('\n\n'):
         block = block.strip()
 
-        # если заголовок: начинается с «**» и заканчивается «**»
-        if block.startswith("**") and block.endswith("**") and len(block) < 100:
+        # Новая логика заголовков: короткая строка (<40), нет точки в середине, либо начинается с цифры + точка
+        if (
+            block.startswith("**") and block.endswith("**") and len(block) < 100
+            or (len(block) < 40 and "\n" not in block and not "." in block[1:])
+            or (len(block) < 40 and block[:2].isdigit() and block[2:3] == ".")
+        ):
             clean_title = block.strip("*").strip()
             story.append(Paragraph(clean_title, styles["Header"]))
         else:
@@ -103,7 +107,6 @@ def text_to_pdf(text: str) -> bytes:
                 line = line.strip()
                 if not line:
                     continue
-                # убрать жирность ** в списках/тексте
                 line = line.replace("**", "")
                 story.append(Paragraph(line, styles["Body"]))
                 story.append(Spacer(1, 4))
