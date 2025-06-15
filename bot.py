@@ -37,8 +37,10 @@ from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.enums import TA_LEFT
 from reportlab.lib.pagesizes import A4
+from reportlab.lib import colors
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
+
 
 FONT_PATH = os.path.join(os.path.dirname(__file__), "DejaVuSans.ttf")
 FONT_BOLD_PATH = os.path.join(os.path.dirname(__file__), "DejaVuSans-Bold.ttf")
@@ -88,8 +90,20 @@ def text_to_pdf(text: str) -> bytes:
         spaceAfter=10,
         alignment=TA_LEFT,
     ))
+styles.add(ParagraphStyle(
+    name='BigTitle',
+    fontName='DejaVuSans-Bold',
+    fontSize=24,
+    textColor=colors.HexColor("#7C3AED"),  # фирменный фиолетовый CosmoAstro
+    leading=28,
+    alignment=TA_LEFT,
+    spaceAfter=20,
+))
 
     story = []
+	
+story.append(Paragraph("Карта предназначения — CosmoAstro", styles["BigTitle"]))
+story.append(Spacer(1, 24))
 
     for block in text.strip().split('\n\n'):
         block = block.strip()
@@ -124,7 +138,6 @@ def upload_pdf_to_storage(user_id: str, pdf_bytes: bytes) -> str:
     return bucket.get_public_url(fname)
 
 def build_destiny_prompt(name, date, time_str, city, country) -> list[dict]:
-    """Return messages payload for chat completions."""
     sys = (
         "Ты — опытный астропсихолог. Объясняй понятно, дружелюбно, на «ты». "
         "Не упоминай ограничения модели и что ты ИИ."
@@ -135,32 +148,29 @@ def build_destiny_prompt(name, date, time_str, city, country) -> list[dict]:
 Время рождения: {time_str}
 Место рождения: {city}, {country}
 
-Составь «Карту предназначения» (650–800 слов).
+Составь «Карту предназначения» объёмом 1100–1300 слов.
 
-❗ Форматируй СТРОГО:
-— Каждый раздел начинай с отдельной строки с заголовком В ОДНОЙ строке (например: "1. Миссия души").
-— После заголовка ставь ДВА перевода строки, чтобы текст шёл отдельным абзацем.
-— Никогда не используй markdown (никаких # или **).
-— Не склеивай заголовок и текст, всегда делай двойной перенос после заголовка.
+❗ ВАЖНО:
+— НЕ используй нумерацию и маркировку (никаких «1.», «2.», «-»).
+— Каждый раздел начинай с отдельной строки с заголовком БЕЗ цифр, просто: «Миссия души», «Врождённые таланты», «Профессия и деньги», «Возможные блоки», «Рекомендации».
+— После заголовка ставь два перевода строки, чтобы текст шёл отдельным абзацем.
+— Не используй markdown (никаких # или **).
+
 Пример:
-1. Миссия души
+Миссия души
 
-Тут абзац...
+(Абзац…)
 
-2. Врождённые таланты
+Врождённые таланты
 
-- ...
-- ...
-(и так далее)
+(Абзац или короткие пункты…)
 
-Структура:
-1. Миссия души – 5-7 предложений.
-2. Врождённые таланты – маркированный список 4-5 пунктов.
-3. Профессия и деньги – 5-7 предложений.
-4. Возможные блоки – 4-5 пунктов с коротким советом.
-5. Рекомендации – 3 конкретных шага.
+…
 
-Заверши последним советом + добавь финальный абзац «Как применять знания на практике».
+В самом конце добавь раздел:
+Как применять на практике
+
+(Краткий, но конкретный абзац-инструкция, как внедрить эти советы в жизнь.)
 """
     return [{"role": "system", "content": sys}, {"role": "user", "content": user}]
 
@@ -285,7 +295,7 @@ async def destiny_card_callback(update: Update, context: ContextTypes.DEFAULT_TY
         resp = OPENAI.chat.completions.create(
             model="gpt-4-turbo",
             messages=messages,
-            max_tokens=1600,
+            max_tokens=2000,
             temperature=0.9,
         )
         report_text = resp.choices[0].message.content.strip()
