@@ -34,6 +34,9 @@ from supabase import create_client, Client
 from openai import OpenAI
 
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
+from reportlab.platypus import HRFlowable
+from reportlab.platypus import Image
+from reportlab.pdfgen.canvas import Canvas
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.enums import TA_LEFT
 from reportlab.lib.pagesizes import A4
@@ -66,6 +69,20 @@ logger = logging.getLogger(__name__)
 READY, DATE, TIME, LOCATION = range(4)
 
 # ──────────────── helpers ────────────────
+def draw_watermark(canvas, doc):
+    logo_path = os.path.join(os.path.dirname(__file__), "logo.png")  # Имя файла логотипа
+    page_width, page_height = A4
+    logo_width = 250
+    logo_height = 250
+    x = (page_width - logo_width) / 2
+    y = (page_height - logo_height) / 2
+    canvas.saveState()
+    try:
+        canvas.setFillAlpha(0.1)  # 10% opacity
+    except AttributeError:
+        pass  # Для старых версий ReportLab fallback
+    canvas.drawImage(logo_path, x, y, width=logo_width, height=logo_height, mask='auto')
+    canvas.restoreState()
 def text_to_pdf(text: str) -> bytes:
     buf = io.BytesIO()
     doc = SimpleDocTemplate(
@@ -87,8 +104,9 @@ def text_to_pdf(text: str) -> bytes:
         fontSize=14,
         leading=18,
         spaceBefore=14,
-        spaceAfter=10,
+        spaceAfter=6,
         alignment=TA_LEFT,
+	textColor=colors.HexColor("#7C3AED"),
     ))
     styles.add(ParagraphStyle(
         name='BigTitle',
@@ -106,29 +124,35 @@ def text_to_pdf(text: str) -> bytes:
     story.append(Spacer(1, 24))
 
     for block in text.strip().split('\n\n'):
-        block = block.strip()
-        # Если блок начинается с одного или нескольких "#", это точно заголовок
-        if re.match(r"^#+\s*", block):
-            clean = re.sub(r"^#+\s*", "", block)
-            story.append(Paragraph(clean, styles["Header"]))
-        # Либо короткая строка без спецсимволов (как до этого)
-        elif (
-            len(block) < 40
-            and not any(ch in block for ch in "-*:;")
-            and not re.match(r"^[-•]", block)
-            and block != ""
-        ):
-            story.append(Paragraph(block, styles["Header"]))
-        else:
-            for line in block.split('\n'):
-                line = line.strip()
-                if not line:
-                    continue
-                line = line.replace("**", "").replace("_", "")
-                story.append(Paragraph(line, styles["Body"]))
-                story.append(Spacer(1, 4))
-        story.append(Spacer(1, 10))
-    doc.build(story)
+    block = block.strip()
+    # Если блок начинается с одного или нескольких "#", это точно заголовок
+    if re.match(r"^#+\s*", block):
+        clean = re.sub(r"^#+\s*", "", block)
+        story.append(Paragraph(clean, styles["Header"]))
+        story.append(HRFlowable(width="100%", thickness=1, color=colors.HexColor("#7C3AED"), spaceBefore=4, spaceAfter=10))
+    # Либо короткая строка без спецсимволов (как до этого)
+    elif (
+        len(block) < 40
+        and not any(ch in block for ch in "-*:;")
+        and not re.match(r"^[-•]", block)
+        and block != ""
+    ):
+        story.append(Paragraph(block, styles["Header"]))
+        story.append(HRFlowable(width="100%", thickness=1, color=colors.HexColor("#7C3AED"), spaceBefore=4, spaceAfter=10))
+    else:
+        for line in block.split('\n'):
+            line = line.strip()
+            if not line:
+                continue
+            line = line.replace("**", "").replace("_", "")
+            story.append(Paragraph(line, styles["Body"]))
+            story.append(Spacer(1, 4))
+    story.append(Spacer(1, 10))
+    doc.build(
+    story,
+    onFirstPage=draw_watermark,
+    onLaterPages=draw_watermark
+)
     return buf.getvalue()
 
 def upload_pdf_to_storage(user_id: str, pdf_bytes: bytes) -> str:
@@ -148,7 +172,7 @@ def build_destiny_prompt(name, date, time_str, city, country) -> list[dict]:
 Время рождения: {time_str}
 Место рождения: {city}, {country}
 
-Составь «Карту предназначения» объёмом 1100–1300 слов.
+Составь «Карту предназначения» объёмом 1500–1600 слов.
 
 ❗ ВАЖНО:
 — НЕ используй нумерацию и маркировку (никаких «1.», «2.», «-»).
@@ -295,7 +319,7 @@ async def destiny_card_callback(update: Update, context: ContextTypes.DEFAULT_TY
         resp = OPENAI.chat.completions.create(
             model="gpt-4-turbo",
             messages=messages,
-            max_tokens=2000,
+            max_tokens=2500,
             temperature=0.9,
         )
         report_text = resp.choices[0].message.content.strip()
