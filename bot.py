@@ -106,7 +106,7 @@ def text_to_pdf(text: str) -> bytes:
         spaceBefore=14,
         spaceAfter=6,
         alignment=TA_LEFT,
-	textColor=colors.HexColor("#7C3AED"),
+        textColor=colors.HexColor("#7C3AED"),
     ))
     styles.add(ParagraphStyle(
         name='BigTitle',
@@ -124,35 +124,36 @@ def text_to_pdf(text: str) -> bytes:
     story.append(Spacer(1, 24))
 
     for block in text.strip().split('\n\n'):
-    block = block.strip()
-    # Если блок начинается с одного или нескольких "#", это точно заголовок
-    if re.match(r"^#+\s*", block):
-        clean = re.sub(r"^#+\s*", "", block)
-        story.append(Paragraph(clean, styles["Header"]))
-        story.append(HRFlowable(width="100%", thickness=1, color=colors.HexColor("#7C3AED"), spaceBefore=4, spaceAfter=10))
-    # Либо короткая строка без спецсимволов (как до этого)
-    elif (
-        len(block) < 40
-        and not any(ch in block for ch in "-*:;")
-        and not re.match(r"^[-•]", block)
-        and block != ""
-    ):
-        story.append(Paragraph(block, styles["Header"]))
-        story.append(HRFlowable(width="100%", thickness=1, color=colors.HexColor("#7C3AED"), spaceBefore=4, spaceAfter=10))
-    else:
-        for line in block.split('\n'):
-            line = line.strip()
-            if not line:
-                continue
-            line = line.replace("**", "").replace("_", "")
-            story.append(Paragraph(line, styles["Body"]))
-            story.append(Spacer(1, 4))
-    story.append(Spacer(1, 10))
+        block = block.strip()
+        # Если блок начинается с одного или нескольких "#", это точно заголовок
+        if re.match(r"^#+\s*", block):
+            clean = re.sub(r"^#+\s*", "", block)
+            story.append(Paragraph(clean, styles["Header"]))
+            story.append(HRFlowable(width="100%", thickness=1, color=colors.HexColor("#7C3AED"), spaceBefore=4, spaceAfter=10))
+        # Либо короткая строка без спецсимволов (как до этого)
+        elif (
+            len(block) < 40
+            and not any(ch in block for ch in "-*:;")
+            and not re.match(r"^[-•]", block)
+            and block != ""
+        ):
+            story.append(Paragraph(block, styles["Header"]))
+            story.append(HRFlowable(width="100%", thickness=1, color=colors.HexColor("#7C3AED"), spaceBefore=4, spaceAfter=10))
+        else:
+            for line in block.split('\n'):
+                line = line.strip()
+                if not line:
+                    continue
+                line = line.replace("**", "").replace("_", "")
+                story.append(Paragraph(line, styles["Body"]))
+                story.append(Spacer(1, 4))
+        story.append(Spacer(1, 10))
+
     doc.build(
-    story,
-    onFirstPage=draw_watermark,
-    onLaterPages=draw_watermark
-)
+        story,
+        onFirstPage=draw_watermark,
+        onLaterPages=draw_watermark
+    )
     return buf.getvalue()
 
 def upload_pdf_to_storage(user_id: str, pdf_bytes: bytes) -> str:
