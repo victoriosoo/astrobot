@@ -4,6 +4,7 @@ import logging
 import asyncio
 import time
 import re
+import qrcode
 from datetime import datetime
 from textwrap import wrap
 
@@ -36,6 +37,7 @@ from openai import OpenAI
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
 from reportlab.platypus import HRFlowable
 from reportlab.platypus import Image
+from reportlab.lib.units import mm
 from reportlab.pdfgen.canvas import Canvas
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.enums import TA_LEFT
@@ -148,6 +150,14 @@ def text_to_pdf(text: str) -> bytes:
                 story.append(Paragraph(line, styles["Body"]))
                 story.append(Spacer(1, 4))
         story.append(Spacer(1, 10))
+    
+    qr_img = qrcode.make("https://t.me/CosmoAstroBot")
+    buf_qr = io.BytesIO()
+    qr_img.save(buf_qr, format='PNG')
+    buf_qr.seek(0)
+    qr_image = Image(buf_qr, width=30*mm, height=30*mm)
+    story.append(Spacer(1, 40))
+    story.append(qr_image)
 
     doc.build(
         story,
