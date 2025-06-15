@@ -359,16 +359,15 @@ async def destiny_card_callback(update: Update, context: ContextTypes.DEFAULT_TY
         pdf_bytes = text_to_pdf(report_text)
         public_url = upload_pdf_to_storage(u["id"], pdf_bytes)
         await query.message.reply_document(
-   	 document=public_url,
-    	filename="Karta_Prednaznacheniya.pdf",
-    	caption=(
+    document=public_url,
+    filename="Karta_Prednaznacheniya.pdf",
+    caption=(
         "Готово! Я собрала твою натальную карту 🔮\n"
         "Вот твоя Карта Предназначения — с подсказками о том, где твои сильные стороны, "
         "на чём стоит строить реализацию и чего лучше избегать.\n\n"
         "Вперёд к лучшей версии себя!"
     ),
 )
-        )
     except Exception as e:
         logger.error("PDF/upload error: %s", e)
         await query.message.reply_text(
