@@ -236,7 +236,8 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await asyncio.sleep(3)
     await update.message.reply_text(
     "Чтобы всё это рассчитать — мне нужно знать, когда, где и во сколько ты родилась ✨\n"
-    "Готова? 👇"
+    "Готова? 👇",
+    reply_markup=ReplyKeyboardMarkup([[KeyboardButton("🔮 Готова")]], resize_keyboard=True)
     )
     return READY
 
