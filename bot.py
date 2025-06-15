@@ -159,7 +159,7 @@ def text_to_pdf(text: str) -> bytes:
     story.append(Spacer(1, 40))
     story.append(qr_image)
 
-    story.append(Spacer(1, 4))
+    story.append(Spacer(1, 40))
     story.append(Paragraph('<font size=10 color="#7C3AED">https://t.me/CosmoAstrologyBot</font>', styles["Body"]))
 
     doc.build(
@@ -306,7 +306,7 @@ async def destiny_product(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "и сферах роста. Поможет принимать решения в гармонии с собой.\n\n"
         "Через 5 секунд появится кнопка, чтобы получить карту."
     )
-    await asyncio.sleep(5)
+    await asyncio.sleep(3)
     await update.message.reply_text(
         "Готов открыть свой маршрут к успеху и свободе?\n"
         "Нажми «Получить карту»!",
@@ -318,7 +318,13 @@ async def destiny_product(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def destiny_card_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
-    await query.message.reply_text("⏳ Формируем карту… это займёт около минуты.")
+    await query.message.reply_text(
+    "Отлично! Я начинаю расчёт твоей натальной карты 🌌\n"
+    "Это не шаблон и не copy paste — я смотрю на твои реальные данные и составляю разбор вручную, чтобы он был точным и полезным именно для тебя.\n"
+    "🕰 Это займёт несколько минут. Как только карта будет готова, я пришлю её сюда.\n\n"
+    "Пока можешь налить себе чай ☕️\n"
+    "А я займусь тем, чтобы твоя карта стала настоящим проводником."
+)
 
     tg_id = query.from_user.id
     user_res = supabase.table("users").select("*").eq("tg_id", tg_id).execute()
@@ -353,9 +359,15 @@ async def destiny_card_callback(update: Update, context: ContextTypes.DEFAULT_TY
         pdf_bytes = text_to_pdf(report_text)
         public_url = upload_pdf_to_storage(u["id"], pdf_bytes)
         await query.message.reply_document(
-            document=public_url,
-            filename="Karta_Prednaznacheniya.pdf",
-            caption="🔮 Карта предназначения готова!",
+   	 document=public_url,
+    	filename="Karta_Prednaznacheniya.pdf",
+    	caption=(
+        "Готово! Я собрала твою натальную карту 🔮\n"
+        "Вот твоя Карта Предназначения — с подсказками о том, где твои сильные стороны, "
+        "на чём стоит строить реализацию и чего лучше избегать.\n\n"
+        "Вперёд к лучшей версии себя!"
+    ),
+)
         )
     except Exception as e:
         logger.error("PDF/upload error: %s", e)
