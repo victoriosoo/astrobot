@@ -90,20 +90,20 @@ def text_to_pdf(text: str) -> bytes:
         spaceAfter=10,
         alignment=TA_LEFT,
     ))
-styles.add(ParagraphStyle(
-    name='BigTitle',
-    fontName='DejaVuSans-Bold',
-    fontSize=24,
-    textColor=colors.HexColor("#7C3AED"),  # фирменный фиолетовый CosmoAstro
-    leading=28,
-    alignment=TA_LEFT,
-    spaceAfter=20,
-))
+    styles.add(ParagraphStyle(
+        name='BigTitle',
+        fontName='DejaVuSans-Bold',
+        fontSize=24,
+        textColor=colors.HexColor("#7C3AED"),  # фирменный фиолетовый CosmoAstro
+        leading=28,
+        alignment=TA_LEFT,
+        spaceAfter=20,
+    ))
 
     story = []
-	
-story.append(Paragraph("Карта предназначения — CosmoAstro", styles["BigTitle"]))
-story.append(Spacer(1, 24))
+
+    story.append(Paragraph("Карта предназначения — CosmoAstro", styles["BigTitle"]))
+    story.append(Spacer(1, 24))
 
     for block in text.strip().split('\n\n'):
         block = block.strip()
