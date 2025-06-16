@@ -8,6 +8,8 @@ from telegram.ext import (
 from datetime import datetime
 import asyncio
 
+from stripe_client import create_checkout_session
+
 from pdf_generator import text_to_pdf, upload_pdf_to_storage
 from prompts import build_destiny_prompt
 
@@ -291,55 +293,28 @@ async def destiny_product(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def destiny_card_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
-    await query.message.reply_text(
-        "Отлично! Я начинаю расчёт твоей натальной карты 🌌\n"
-        "Это не шаблон и не copy paste — я смотрю на твои реальные данные и составляю разбор вручную, чтобы он был точным и полезным именно для тебя.\n"
-        "🕰 Это займёт несколько минут. Как только карта будет готова, я пришлю её сюда.\n\n"
-        "Пока можешь налить себе чай ☕️\n"
-        "А я займусь тем, чтобы твоя карта стала настоящим проводником."
-    )
-
     tg_id = query.from_user.id
+
+    # Получаем пользователя
     user_list = get_user(tg_id)
     if not user_list:
         await query.message.reply_text("Не найден профиль. Пройди /start.")
         return
-    u = user_list[0]
 
-    # build prompt & call GPT
-    messages = build_destiny_prompt(
-        name=u.get("name", "Друг"),
-        date=datetime.strptime(u["birth_date"], "%Y-%m-%d").strftime("%d.%m.%Y"),
-        time_str=u["birth_time"],
-        city=u["birth_city"],
-        country=u["birth_country"],
+    # Генерируем ссылку Stripe Checkout
+    success_url = "https://t.me/cosmoastro_bot"
+    cancel_url = "https://t.me/cosmoastro_bot"
+    checkout_url = create_checkout_session(tg_id, "destiny", success_url, cancel_url)
+
+    await query.message.reply_text(
+        "Чтобы получить персональный PDF-разбор, оплати продукт по ссылке ниже 👇",
+        reply_markup=InlineKeyboardMarkup([
+            [InlineKeyboardButton("💳 Оплатить в Stripe", url=checkout_url)]
+        ])
     )
-    try:
-        report_text = ask_gpt(
-            messages,
-            model="gpt-4-turbo",
-            max_tokens=2500,
-            temperature=0.9,
-        )
-    except Exception as e:
-        await query.message.reply_text("Ошибка генерации. Попробуй позже.")
-        return
+    await query.message.reply_text(
+        "⚡️ После оплаты я сразу начну расчёт и пришлю твою карту в этот чат.\n"
+        "Платёж защищён. Обычно обработка занимает 1–2 минуты. "
+        "Спасибо, что выбираешь CosmoAstro!"
+    )
 
-    # generate PDF -> upload -> send
-    try:
-        pdf_bytes = text_to_pdf(report_text)
-        public_url = upload_pdf_to_storage(u["id"], pdf_bytes)
-        await query.message.reply_document(
-            document=public_url,
-            filename="Karta_Prednaznacheniya.pdf",
-            caption=(
-                "Готово! Я собрала твою натальную карту 🔮\n"
-                "Вот твоя Карта Предназначения — с подсказками о том, где твои сильные стороны, "
-                "на чём стоит строить реализацию и чего лучше избегать.\n\n"
-                "Вперёд к лучшей версии себя!"
-            ),
-        )
-    except Exception as e:
-        await query.message.reply_text(
-            "Карта готова, но файл не прикрепился 😔. Вот текст:\n\n" + report_text
-        )
