@@ -118,6 +118,34 @@ async def destiny_product(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def destiny_card_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
+    tg_id = query.from_user.id
+
+    user_list = get_user(tg_id)
+    if not user_list:
+        await query.message.reply_text("Не найден профиль. Пройди /start.")
+        return
+    u = user_list[0]
+
+    # Проверяем оплату
+    if not u.get("paid_destiny"):
+        # Генерируем ссылку Stripe Checkout
+        success_url = "https://t.me/CosmoAstrologyBot"
+        cancel_url = "https://t.me/CosmoAstrologyBot"
+        checkout_url = create_checkout_session(tg_id, "destiny", success_url, cancel_url)
+        await query.message.reply_text(
+            "Чтобы получить персональный PDF-разбор, оплати продукт по ссылке ниже 👇",
+            reply_markup=InlineKeyboardMarkup([
+                [InlineKeyboardButton("💳 Оплатить в Stripe", url=checkout_url)]
+            ])
+        )
+        await query.message.reply_text(
+            "⚡️ После оплаты вернись в этот чат и снова нажми кнопку «Получить карту».\n"
+            "Платёж защищён. Обычно обработка занимает 1–2 минуты. "
+            "Спасибо, что выбираешь CosmoAstro!"
+        )
+        return
+
+    # Если оплата есть — генерируем карту
     await query.message.reply_text(
         "Отлично! Я начинаю расчёт твоей натальной карты 🌌\n"
         "Это не шаблон и не copy paste — я смотрю на твои реальные данные и составляю разбор вручную, чтобы он был точным и полезным именно для тебя.\n"
@@ -126,14 +154,6 @@ async def destiny_card_callback(update: Update, context: ContextTypes.DEFAULT_TY
         "А я займусь тем, чтобы твоя карта стала настоящим проводником."
     )
 
-    tg_id = query.from_user.id
-    user_res = context.application.supabase.table("users").select("*").eq("tg_id", tg_id).execute()
-    if not user_res.data:
-        await query.message.reply_text("Не найден профиль. Пройди /start.")
-        return
-    u = user_res.data[0]
-
-    # build prompt & call GPT
     messages = build_destiny_prompt(
         name=u.get("name", "Друг"),
         date=datetime.strptime(u["birth_date"], "%Y-%m-%d").strftime("%d.%m.%Y"),
@@ -142,19 +162,17 @@ async def destiny_card_callback(update: Update, context: ContextTypes.DEFAULT_TY
         country=u["birth_country"],
     )
     try:
-        resp = context.application.OPENAI.chat.completions.create(
+        report_text = ask_gpt(
+            messages,
             model="gpt-4-turbo",
-            messages=messages,
             max_tokens=2500,
             temperature=0.9,
         )
-        report_text = resp.choices[0].message.content.strip()
     except Exception as e:
-        context.application.logger.error("GPT error: %s", e)
+        print("GPT error:", e)
         await query.message.reply_text("Ошибка генерации. Попробуй позже.")
         return
 
-    # generate PDF -> upload -> send
     try:
         pdf_bytes = text_to_pdf(report_text)
         public_url = upload_pdf_to_storage(u["id"], pdf_bytes)
@@ -169,7 +187,7 @@ async def destiny_card_callback(update: Update, context: ContextTypes.DEFAULT_TY
             ),
         )
     except Exception as e:
-        context.application.logger.error("PDF/upload error: %s", e)
+        print("PDF/upload error:", e)
         await query.message.reply_text(
             "Карта готова, но файл не прикрепился 😔. Вот текст:\n\n" + report_text
         )
