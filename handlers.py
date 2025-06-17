@@ -179,9 +179,12 @@ async def destiny_card_callback(update: Update, context: ContextTypes.DEFAULT_TY
             )
         except Exception as e:
             print("PDF/upload error:", e)
+            print("user_id:", user["id"])
+            print("filename:", filename)
+            print("public_url:", public_url if 'public_url' in locals() else "Not created")
             await query.message.reply_text(
-                "Карта готова, но файл не прикрепился 😔. Вот текст:\n\n" + report_text
-            )
+            "Карта готова, но файл не прикрепился 😔. Вот текст:\n\n" + report_text
+    )
         return
 
     # Если оплата не прошла — предлагаем оплатить
