@@ -113,15 +113,37 @@ def stripe_webhook():
         print("Webhook signature error:", e)
         return str(e), 400
 
-    if event["type"] == "checkout.session.completed":
-        session = event["data"]["object"]
-        tg_id = session["metadata"]["tg_id"]
-        product_type = session["metadata"].get("product_type", "destiny")
-        paid_field = PRODUCTS.get(product_type, "paid_destiny")
-        update_user(tg_id, **{paid_field: True})
-        send_start_message(tg_id, product_type)
-        send_pdf_to_user(tg_id, product_type)
+    try:
+        if event["type"] == "checkout.session.completed":
+            session = event["data"]["object"]
+            tg_id = session["metadata"]["tg_id"]
+            product_type = session["metadata"].get("product_type", "destiny")
+            paid_field = PRODUCTS.get(product_type, "paid_destiny")
+            
+            print(f"Received payment: tg_id={tg_id}, product_type={product_type}")
+            update_user(tg_id, **{paid_field: True})
+            send_start_message(tg_id, product_type)
+
+            # Проверка всех нужных данных
+            user_list = get_user(tg_id)
+            if not user_list:
+                print("ERROR: User not found for PDF sending!")
+                return "", 200
+            u = user_list[0]
+            for field in ["name", "birth_date", "birth_time", "birth_city", "birth_country"]:
+                if not u.get(field):
+                    print(f"ERROR: Field {field} missing for user {tg_id}")
+                    return "", 200
+
+            send_pdf_to_user(tg_id, product_type)
+    except Exception as e:
+        import traceback
+        print("Webhook handling error:", e)
+        traceback.print_exc()
+        return "", 200
+
     return "", 200
+
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
