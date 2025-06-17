@@ -7,7 +7,6 @@ from telegram.ext import (
 )
 from datetime import datetime
 import asyncio
-import re
 
 from pdf_generator import text_to_pdf, upload_pdf_to_storage
 from prompts import build_destiny_prompt
@@ -15,10 +14,6 @@ from openai_client import ask_gpt
 from supabase_client import get_user, create_user, update_user
 
 READY, DATE, TIME, LOCATION = range(4)
-
-def safe_filename(text):
-    # Убирает пробелы, кириллицу превращает в латиницу (если нужно), убирает спецсимволы
-    return re.sub(r'[^\w\d-]', '_', text)
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
@@ -158,18 +153,13 @@ async def destiny_card_callback(update: Update, context: ContextTypes.DEFAULT_TY
             await query.message.reply_text("Ошибка генерации. Попробуй позже.")
             return
 
-        # Красивая генерация имени файла
-        name = safe_filename(user.get("name", "User"))
-        date_str = datetime.strptime(user["birth_date"], "%Y-%m-%d").strftime("%Y-%m-%d")
-        filename = f"Karta_Prednaznacheniya_{name}_{date_str}.pdf"
-
         # Генерируем PDF и отправляем
         try:
             pdf_bytes = text_to_pdf(report_text)
-            public_url = upload_pdf_to_storage(user["id"], pdf_bytes, filename=filename)
+            public_url = upload_pdf_to_storage(user["id"], pdf_bytes)
             await query.message.reply_document(
                 document=public_url,
-                filename=filename,
+                filename="Karta_Prednaznacheniya.pdf",
                 caption=(
                     "Готово! Я собрала твою натальную карту 🔮\n"
                     "Вот твоя Карта Предназначения — с подсказками о том, где твои сильные стороны, "
@@ -179,12 +169,9 @@ async def destiny_card_callback(update: Update, context: ContextTypes.DEFAULT_TY
             )
         except Exception as e:
             print("PDF/upload error:", e)
-            print("user_id:", user["id"])
-            print("filename:", filename)
-            print("public_url:", public_url if 'public_url' in locals() else "Not created")
             await query.message.reply_text(
-            "Карта готова, но файл не прикрепился 😔. Вот текст:\n\n" + report_text
-    )
+                "Карта готова, но файл не прикрепился 😔. Вот текст:\n\n" + report_text
+            )
         return
 
     # Если оплата не прошла — предлагаем оплатить
