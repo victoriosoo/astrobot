@@ -120,10 +120,8 @@ def text_to_pdf(text: str) -> bytes:
     )
     return buf.getvalue()
 
-def upload_pdf_to_storage(user_id: str, pdf_bytes: bytes) -> str:
-    from supabase_client import supabase  # импортировать client из клиента Supabase
-    import time
+def upload_pdf_to_storage(user_id: str, pdf_bytes: bytes, file_name: str) -> str:
+    from supabase_client import supabase
     bucket = supabase.storage.from_("destiny-reports")
-    fname = f"{user_id}_{int(time.time())}.pdf"
-    bucket.upload(fname, pdf_bytes)
-    return bucket.get_public_url(fname)
+    bucket.upload(file_name, pdf_bytes)
+    return bucket.get_public_url(file_name)
