@@ -8,6 +8,8 @@ from telegram.ext import (
 from datetime import datetime
 import asyncio
 
+from stripe_client import create_checkout_session
+
 from pdf_generator import text_to_pdf, upload_pdf_to_storage
 from prompts import build_destiny_prompt
 from openai_client import ask_gpt
