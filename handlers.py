@@ -109,66 +109,73 @@ async def destiny_product(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 async def destiny_card_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    await query.answer()
-    tg_id = query.from_user.id
+    # Проверяем тип события — callback или обычное сообщение
+    if update.callback_query is not None:
+        query = update.callback_query
+        await query.answer()
+        tg_id = query.from_user.id
+        message = query.message
+    else:
+        query = None
+        tg_id = update.effective_user.id
+        message = update.message
+
+    print("CALLBACK TRIGGERED", flush=True)
 
     # Получаем пользователя из базы
     user_list = get_user(tg_id)
     if not user_list:
-        await query.message.reply_text("Не найден профиль. Пройди /start.")
+        await message.reply_text("Не найден профиль. Пройди /start.")
         return
 
     user = user_list[0]
 
-    # Если оплата уже прошла — сразу выдаём PDF
-    
-    await query.message.reply_text(
-            "Оплата подтверждена! Начинаю расчёт твоей натальной карты 🌌\n"
-            "Это не шаблон — я использую твои реальные данные.\n"
-            "🕰 Это займёт несколько минут. Как только карта будет готова, пришлю её сюда.\n\n"
-            "Пока можешь налить себе чай ☕️"
-        )
+    # Генерируем промпт для GPT
+    await message.reply_text(
+        "Начинаю расчёт твоей натальной карты 🌌\n"
+        "Это не шаблон — я использую твои реальные данные.\n"
+        "🕰 Это займёт несколько минут. Как только карта будет готова, пришлю её сюда.\n\n"
+        "Пока можешь налить себе чай ☕️"
+    )
 
-        # Генерируем промпт для GPT
     messages = build_destiny_prompt(
-            name=user.get("name", "Друг"),
-            date=datetime.strptime(user["birth_date"], "%Y-%m-%d").strftime("%d.%m.%Y"),
-            time_str=user["birth_time"],
-            city=user["birth_city"],
-            country=user["birth_country"],
+        name=user.get("name", "Друг"),
+        date=datetime.strptime(user["birth_date"], "%Y-%m-%d").strftime("%d.%m.%Y"),
+        time_str=user["birth_time"],
+        city=user["birth_city"],
+        country=user["birth_country"],
+    )
+    try:
+        report_text = ask_gpt(
+            messages,
+            model="gpt-4-turbo",
+            max_tokens=2500,
+            temperature=0.9,
         )
-    try:
-            report_text = ask_gpt(
-                messages,
-                model="gpt-4-turbo",
-                max_tokens=2500,
-                temperature=0.9,
-            )
     except Exception as e:
-            print("GPT error:", e)
-            await query.message.reply_text("Ошибка генерации. Попробуй позже.")
-            return
+        print("GPT error:", e)
+        await message.reply_text("Ошибка генерации. Попробуй позже.")
+        return
 
-        # Генерируем PDF и отправляем
+    # Генерируем PDF и отправляем
     try:
-            pdf_bytes = text_to_pdf(report_text)
-            public_url = upload_pdf_to_storage(user["id"], pdf_bytes)
-            await query.message.reply_document(
-                document=public_url,
-                filename="Karta_Prednaznacheniya.pdf",
-                caption=(
-                    "Готово! Я собрала твою натальную карту 🔮\n"
-                    "Вот твоя Карта Предназначения — с подсказками о том, где твои сильные стороны, "
-                    "на чём стоит строить реализацию и чего лучше избегать.\n\n"
-                    "Вперёд к лучшей версии себя!"
-                ),
-            )
+        pdf_bytes = text_to_pdf(report_text)
+        public_url = upload_pdf_to_storage(user["id"], pdf_bytes)
+        await message.reply_document(
+            document=public_url,
+            filename="Karta_Prednaznacheniya.pdf",
+            caption=(
+                "Готово! Я собрала твою натальную карту 🔮\n"
+                "Вот твоя Карта Предназначения — с подсказками о том, где твои сильные стороны, "
+                "на чём стоит строить реализацию и чего лучше избегать.\n\n"
+                "Вперёд к лучшей версии себя!"
+            ),
+        )
     except Exception as e:
-            print("PDF/upload error:", e)
-            await query.message.reply_text(
-                "Карта готова, но файл не прикрепился 😔. Вот текст:\n\n" + report_text
-            )
+        print("PDF/upload error:", e)
+        await message.reply_text(
+            "Карта готова, но файл не прикрепился 😔. Вот текст:\n\n" + report_text
+        )
     return
 
     # Если оплата не прошла — предлагаем оплатить
