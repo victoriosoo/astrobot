@@ -102,7 +102,8 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def destiny_product(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         "Карта предназначения — персональное послание о твоей миссии, талантах "
-        "и сферах роста. Поможет принимать решения в гармонии с собой."       
+        "и сферах роста. Поможет принимать решения в гармонии с собой."   ,    
+        reply_markup=ReplyKeyboardRemove()
     )
     await asyncio.sleep(3)
     await update.message.reply_text(
