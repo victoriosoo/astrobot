@@ -29,7 +29,7 @@ def stripe_webhook():
     try:
         if event["type"] == "checkout.session.completed":
             session = event["data"]["object"]
-            tg_id = int(session["metadata"]["tg_id"])
+            tg_id = session["metadata"]["tg_id"]
             product_type = session["metadata"].get("product_type", "destiny")
             paid_field = PRODUCTS.get(product_type, "paid_destiny")
 
