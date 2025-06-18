@@ -100,18 +100,11 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     return ConversationHandler.END
 
 async def destiny_product(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    print("CALLBACK TRIGGERED") 
+    print("CALLBACK TRIGGERED", flush=True)
     await update.message.reply_text(
-        "Карта предназначения — персональное послание о твоей миссии, талантах "
-        "и сферах роста. Поможет принимать решения в гармонии с собой."   ,    
-        reply_markup=ReplyKeyboardRemove()
-    )
-    await asyncio.sleep(3)
-    await update.message.reply_text(
-        "Готов открыть свой маршрут к успеху и свободе?\n"
-        "Нажми «Получить карту»!",
-        reply_markup=InlineKeyboardMarkup(
-            [[InlineKeyboardButton("🔮 Получить карту", callback_data="destiny_card")]]
+        "Карта предназначения — персональное послание о твоей миссии, талантах и сферах роста. Поможет принимать решения в гармонии с собой.",
+        reply_markup=ReplyKeyboardMarkup(
+            [["Получить карту"]], resize_keyboard=True
         ),
     )
 

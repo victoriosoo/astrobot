@@ -31,6 +31,7 @@ if __name__ == "__main__":
 
     app.add_handler(conv_handler)
     app.add_handler(MessageHandler(filters.Regex(r"^📜 Карта предназначения$"), destiny_product))
+    app.add_handler(MessageHandler(filters.Regex(r"^Получить карту$"), destiny_card_callback))
     app.add_handler(CallbackQueryHandler(destiny_card_callback, pattern=r"^destiny_card$"))
 
     logger.info("Bot started")
