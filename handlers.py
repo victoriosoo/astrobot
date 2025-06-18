@@ -129,8 +129,8 @@ async def destiny_card_callback(update: Update, context: ContextTypes.DEFAULT_TY
     user = user_list[0]
 
     # Если оплата уже прошла — сразу выдаём PDF
-    if user.get("paid_destiny"):
-        await query.message.reply_text(
+    
+    await query.message.reply_text(
             "Оплата подтверждена! Начинаю расчёт твоей натальной карты 🌌\n"
             "Это не шаблон — я использую твои реальные данные.\n"
             "🕰 Это займёт несколько минут. Как только карта будет готова, пришлю её сюда.\n\n"
@@ -138,27 +138,27 @@ async def destiny_card_callback(update: Update, context: ContextTypes.DEFAULT_TY
         )
 
         # Генерируем промпт для GPT
-        messages = build_destiny_prompt(
+    messages = build_destiny_prompt(
             name=user.get("name", "Друг"),
             date=datetime.strptime(user["birth_date"], "%Y-%m-%d").strftime("%d.%m.%Y"),
             time_str=user["birth_time"],
             city=user["birth_city"],
             country=user["birth_country"],
         )
-        try:
+    try:
             report_text = ask_gpt(
                 messages,
                 model="gpt-4-turbo",
                 max_tokens=2500,
                 temperature=0.9,
             )
-        except Exception as e:
+    except Exception as e:
             print("GPT error:", e)
             await query.message.reply_text("Ошибка генерации. Попробуй позже.")
             return
 
         # Генерируем PDF и отправляем
-        try:
+    try:
             pdf_bytes = text_to_pdf(report_text)
             public_url = upload_pdf_to_storage(user["id"], pdf_bytes)
             await query.message.reply_document(
@@ -171,12 +171,12 @@ async def destiny_card_callback(update: Update, context: ContextTypes.DEFAULT_TY
                     "Вперёд к лучшей версии себя!"
                 ),
             )
-        except Exception as e:
+    except Exception as e:
             print("PDF/upload error:", e)
             await query.message.reply_text(
                 "Карта готова, но файл не прикрепился 😔. Вот текст:\n\n" + report_text
             )
-        return
+    return
 
     # Если оплата не прошла — предлагаем оплатить
     success_url = "https://t.me/CosmoAstrologyBot"
