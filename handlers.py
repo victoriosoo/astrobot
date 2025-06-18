@@ -100,6 +100,7 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     return ConversationHandler.END
 
 async def destiny_product(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    print("CALLBACK TRIGGERED") 
     await update.message.reply_text(
         "Карта предназначения — персональное послание о твоей миссии, талантах "
         "и сферах роста. Поможет принимать решения в гармонии с собой."   ,    
