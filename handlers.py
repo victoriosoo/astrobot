@@ -184,13 +184,13 @@ async def destiny_card_callback(update: Update, context: ContextTypes.DEFAULT_TY
     cancel_url = "https://t.me/CosmoAstrologyBot"
     checkout_url = create_checkout_session(tg_id, "destiny", success_url, cancel_url)
 
-    await query.message.reply_text(
+    await message.reply_text(
         "Чтобы получить персональный PDF-разбор, оплати продукт по ссылке ниже 👇",
         reply_markup=InlineKeyboardMarkup([[
             InlineKeyboardButton("💳 Оплатить в Stripe", url=checkout_url)
         ]])
     )
-    await query.message.reply_text(
+    await message.reply_text(
         "⚡️ После оплаты вернись в этот чат и снова нажми кнопку «Получить карту».\n"
         "Платёж защищён. Обычно обработка занимает 1–2 минуты. "
         "Спасибо, что выбираешь CosmoAstro!"
