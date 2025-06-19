@@ -30,10 +30,10 @@ if __name__ == "__main__":
     fallbacks=[CommandHandler("cancel", cancel)],
 )
 
-    app.add_handler(conv_handler)
     app.add_handler(CallbackQueryHandler(ask_birth, pattern="^ready$"))
     app.add_handler(CallbackQueryHandler(destiny_product, pattern="^product_destiny$"))
     app.add_handler(CallbackQueryHandler(destiny_card_callback, pattern="^destiny_card$"))
+    app.add_handler(conv_handler)
 
     logger.info("Bot started")
     app.run_polling()
