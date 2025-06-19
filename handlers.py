@@ -89,9 +89,9 @@ async def save_profile(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "Отлично! Я получила твои данные и скажу честно: твоя карта очень нестандартная.\n"
         "🪐 Уже с первого взгляда видно: ты не из тех, кто должен «просто жить, как все». У тебя есть внутренний вектор, и когда ты идёшь против него, энергия уходит в пустоту.\n\n"
         "Готова узнать о себе больше?",
-        reply_markup=ReplyKeyboardMarkup(
-            [["📜 Карта предназначения"]], resize_keyboard=True
-        ),
+        reply_markup=InlineKeyboardMarkup([
+            [InlineKeyboardButton("📜 Карта предназначения", callback_data="destiny_product")]
+        ])
     )
     return ConversationHandler.END
 
@@ -100,14 +100,22 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     return ConversationHandler.END
 
 async def destiny_product(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    print("CALLBACK TRIGGERED", flush=True)
-    await update.message.reply_text(
-        "Карта предназначения — персональное послание о твоей миссии, талантах и сферах роста. Поможет принимать решения в гармонии с собой.",
-        reply_markup=ReplyKeyboardMarkup(
-            [["Получить карту"]], resize_keyboard=True
-        ),
-    )
-
+    if update.callback_query is not None:
+        query = update.callback_query
+        await query.answer()
+        await query.message.reply_text(
+            "Карта предназначения — персональное послание о твоей миссии, талантах и сферах роста. Поможет принимать решения в гармонии с собой.",
+            reply_markup=InlineKeyboardMarkup([
+                [InlineKeyboardButton("Получить карту", callback_data="destiny_card")]
+            ])
+        )
+    else:
+        await update.message.reply_text(
+            "Карта предназначения — персональное послание о твоей миссии, талантах и сферах роста. Поможет принимать решения в гармонии с собой.",
+            reply_markup=InlineKeyboardMarkup([
+                [InlineKeyboardButton("Получить карту", callback_data="destiny_card")]
+            ])
+        )
 async def destiny_card_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Проверяем тип события — callback или обычное сообщение
     if update.callback_query is not None:
