@@ -137,7 +137,7 @@ async def destiny_card_callback(update: Update, context: ContextTypes.DEFAULT_TY
         "Это не шаблон — я использую твои реальные данные.\n"
         "🕰 Это займёт несколько минут. Как только карта будет готова, пришлю её сюда.\n\n"
         "Пока можешь налить себе чай ☕️"
-    )
+        )
 
         messages = build_destiny_prompt(
         name=user.get("name", "Друг"),
@@ -145,24 +145,24 @@ async def destiny_card_callback(update: Update, context: ContextTypes.DEFAULT_TY
         time_str=user["birth_time"],
         city=user["birth_city"],
         country=user["birth_country"],
-    )
-    try:
-        report_text = ask_gpt(
+        )
+        try:
+            report_text = ask_gpt(
             messages,
             model="gpt-4-turbo",
             max_tokens=2500,
             temperature=0.9,
         )
-    except Exception as e:
-        print("GPT error:", e)
-        await message.reply_text("Ошибка генерации. Попробуй позже.")
-        return
+        except Exception as e:
+            print("GPT error:", e)
+            await message.reply_text("Ошибка генерации. Попробуй позже.")
+            return
 
-    # Генерируем PDF и отправляем
-    try:
-        pdf_bytes = text_to_pdf(report_text)
-        public_url = upload_pdf_to_storage(user["id"], pdf_bytes)
-        await message.reply_document(
+        # Генерируем PDF и отправляем
+        try:
+            pdf_bytes = text_to_pdf(report_text)
+            public_url = upload_pdf_to_storage(user["id"], pdf_bytes)
+            await message.reply_document(
             document=public_url,
             filename="Karta_Prednaznacheniya.pdf",
             caption=(
@@ -172,12 +172,12 @@ async def destiny_card_callback(update: Update, context: ContextTypes.DEFAULT_TY
                 "Вперёд к лучшей версии себя!"
             ),
         )
-    except Exception as e:
-        print("PDF/upload error:", e)
-        await message.reply_text(
+        except Exception as e:
+            print("PDF/upload error:", e)
+            await message.reply_text(
             "Карта готова, но файл не прикрепился 😔. Вот текст:\n\n" + report_text
-        )
-    return
+            )
+        return
 
     # Если оплата не прошла — предлагаем оплатить
     success_url = "https://t.me/CosmoAstrologyBot"
