@@ -120,7 +120,7 @@ async def destiny_card_callback(update: Update, context: ContextTypes.DEFAULT_TY
         tg_id = update.effective_user.id
         message = update.message
 
-    print("CALLBACK TRIGGERED", flush=True)
+    print("CALLBACK TRIGGERED SECOND", flush=True)
 
     # Получаем пользователя из базы
     user_list = get_user(tg_id)
