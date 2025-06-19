@@ -42,7 +42,6 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
             [InlineKeyboardButton("👛 Готова", callback_data="ready")]
         ])
     )
-    return READY
 
 async def ask_birth(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Только для callback-кнопки
