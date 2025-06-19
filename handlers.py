@@ -131,14 +131,15 @@ async def destiny_card_callback(update: Update, context: ContextTypes.DEFAULT_TY
     user = user_list[0]
 
     # Генерируем промпт для GPT
-    await message.reply_text(
+    if user.get("paid_destiny"):
+        await message.reply_text(
         "Начинаю расчёт твоей натальной карты 🌌\n"
         "Это не шаблон — я использую твои реальные данные.\n"
         "🕰 Это займёт несколько минут. Как только карта будет готова, пришлю её сюда.\n\n"
         "Пока можешь налить себе чай ☕️"
     )
 
-    messages = build_destiny_prompt(
+        messages = build_destiny_prompt(
         name=user.get("name", "Друг"),
         date=datetime.strptime(user["birth_date"], "%Y-%m-%d").strftime("%d.%m.%Y"),
         time_str=user["birth_time"],
