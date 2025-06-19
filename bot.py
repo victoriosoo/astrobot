@@ -6,7 +6,7 @@ from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, Cal
 from handlers import (
     start, ask_birth, ask_time, ask_location, save_profile,
     cancel, destiny_product, destiny_card_callback,
-    READY, DATE, TIME, LOCATION
+    DATE, TIME, LOCATION
 )
 
 load_dotenv()

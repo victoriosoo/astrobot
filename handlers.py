@@ -15,7 +15,7 @@ from prompts import build_destiny_prompt
 from openai_client import ask_gpt
 from supabase_client import get_user, create_user, update_user
 
-DATE, TIME, LOCATION = range(4)
+DATE, TIME, LOCATION = range(3)
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
