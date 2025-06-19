@@ -22,7 +22,7 @@ if __name__ == "__main__":
     entry_points=[CommandHandler("start", start)],
     states={
         # Убрать READY — теперь этот шаг обрабатывается только inline-кнопкой!
-        # READY: [MessageHandler(filters.Regex(r"^🔮 Готова$"), ask_birth)],
+        READY: [CallbackQueryHandler(ask_birth, pattern="^ready$")],
         DATE: [MessageHandler(filters.TEXT & ~filters.COMMAND, ask_time)],
         TIME: [MessageHandler(filters.TEXT & ~filters.COMMAND, ask_location)],
         LOCATION: [MessageHandler(filters.TEXT & ~filters.COMMAND, save_profile)],
@@ -30,7 +30,6 @@ if __name__ == "__main__":
     fallbacks=[CommandHandler("cancel", cancel)],
 )
 
-    app.add_handler(CallbackQueryHandler(ask_birth, pattern="^ready$"))
     app.add_handler(CallbackQueryHandler(destiny_product, pattern="^product_destiny$"))
     app.add_handler(CallbackQueryHandler(destiny_card_callback, pattern="^destiny_card$"))
     app.add_handler(conv_handler)
