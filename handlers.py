@@ -15,7 +15,7 @@ from prompts import build_destiny_prompt
 from openai_client import ask_gpt
 from supabase_client import get_user, create_user, update_user
 
-READY, DATE, TIME, LOCATION = range(4)
+DATE, TIME, LOCATION = range(4)
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
@@ -42,7 +42,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
             [InlineKeyboardButton("👛 Готова", callback_data="ready")]
         ])
     )
-    return READY
+    return ConversationHandler.END
 
 async def ask_birth(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Только для callback-кнопки

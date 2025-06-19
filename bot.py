@@ -19,10 +19,12 @@ if __name__ == "__main__":
     app = ApplicationBuilder().token(TG_TOKEN).build()
 
     conv_handler = ConversationHandler(
-    entry_points=[CommandHandler("start", start)],
+    # 1️⃣  Два entry-point’а: /start И нажатие «ready»
+    entry_points=[
+        CommandHandler("start", start),
+        CallbackQueryHandler(ask_birth, pattern="^ready$"),
+    ],
     states={
-        # Убрать READY — теперь этот шаг обрабатывается только inline-кнопкой!
-        READY: [CallbackQueryHandler(ask_birth, pattern="^ready$")],
         DATE: [MessageHandler(filters.TEXT & ~filters.COMMAND, ask_time)],
         TIME: [MessageHandler(filters.TEXT & ~filters.COMMAND, ask_location)],
         LOCATION: [MessageHandler(filters.TEXT & ~filters.COMMAND, save_profile)],
