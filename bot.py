@@ -19,20 +19,21 @@ if __name__ == "__main__":
     app = ApplicationBuilder().token(TG_TOKEN).build()
 
     conv_handler = ConversationHandler(
-        entry_points=[CommandHandler("start", start)],
-        states={
-            READY: [MessageHandler(filters.Regex(r"^🔮 Готова$"), ask_birth)],
-            DATE: [MessageHandler(filters.TEXT & ~filters.COMMAND, ask_time)],
-            TIME: [MessageHandler(filters.TEXT & ~filters.COMMAND, ask_location)],
-            LOCATION: [MessageHandler(filters.TEXT & ~filters.COMMAND, save_profile)],
-        },
-        fallbacks=[CommandHandler("cancel", cancel)],
-    )
+    entry_points=[CommandHandler("start", start)],
+    states={
+        # Убрать READY — теперь этот шаг обрабатывается только inline-кнопкой!
+        # READY: [MessageHandler(filters.Regex(r"^🔮 Готова$"), ask_birth)],
+        DATE: [MessageHandler(filters.TEXT & ~filters.COMMAND, ask_time)],
+        TIME: [MessageHandler(filters.TEXT & ~filters.COMMAND, ask_location)],
+        LOCATION: [MessageHandler(filters.TEXT & ~filters.COMMAND, save_profile)],
+    },
+    fallbacks=[CommandHandler("cancel", cancel)],
+)
 
     app.add_handler(conv_handler)
-    app.add_handler(MessageHandler(filters.Regex(r"^📜 Карта предназначения$"), destiny_product))
-    app.add_handler(MessageHandler(filters.Regex(r"^Получить карту$"), destiny_card_callback))
-    app.add_handler(CallbackQueryHandler(destiny_card_callback, pattern=r"^destiny_card$"))
+    app.add_handler(CallbackQueryHandler(ready_handler, pattern="^ready$"))
+    app.add_handler(CallbackQueryHandler(destiny_product, pattern="^product_destiny$"))
+    app.add_handler(CallbackQueryHandler(destiny_card_callback, pattern="^destiny_card$"))
 
     logger.info("Bot started")
     app.run_polling()

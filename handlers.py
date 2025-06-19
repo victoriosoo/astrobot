@@ -37,16 +37,21 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
     await asyncio.sleep(3)
     await update.message.reply_text(
-        "Чтобы всё это рассчитать — мне нужно знать, когда, где и во сколько ты родилась ✨\n"
-        "Готова? 👇",
-        reply_markup=ReplyKeyboardMarkup([[KeyboardButton("🔮 Готова")]], resize_keyboard=True)
+        "Чтобы всё это рассчитать — мне нужно знать, когда, где и во сколько ты родилась ✨\nГотова? 👇",
+        reply_markup=InlineKeyboardMarkup([
+            [InlineKeyboardButton("👛 Готова", callback_data="ready")]
+        ])
     )
     return READY
 
 async def ask_birth(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.message.text != "🔮 Готова":
-        return READY
-    await update.message.reply_text("1/3 — Введи дату рождения (ДД.ММ.ГГГГ):", reply_markup=ReplyKeyboardRemove())
+    # Только для callback-кнопки
+    query = update.callback_query
+    await query.answer()
+    await query.message.reply_text(
+        "1/3 — Введи дату рождения (ДД.ММ.ГГГГ):",
+        reply_markup=ReplyKeyboardRemove()
+    )
     return DATE
 
 async def ask_time(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -89,9 +94,9 @@ async def save_profile(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "Отлично! Я получила твои данные и скажу честно: твоя карта очень нестандартная.\n"
         "🪐 Уже с первого взгляда видно: ты не из тех, кто должен «просто жить, как все». У тебя есть внутренний вектор, и когда ты идёшь против него, энергия уходит в пустоту.\n\n"
         "Готова узнать о себе больше?",
-        reply_markup=ReplyKeyboardMarkup(
-            [["📜 Карта предназначения"]], resize_keyboard=True
-        ),
+        reply_markup=InlineKeyboardMarkup([
+        [InlineKeyboardButton("📜 Карта предназначения", callback_data="product_destiny")]
+        ]),
     )
     return ConversationHandler.END
 
@@ -100,12 +105,16 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     return ConversationHandler.END
 
 async def destiny_product(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
     print("CALLBACK TRIGGERED", flush=True)
-    await update.message.reply_text(
-        "Карта предназначения — персональное послание о твоей миссии, талантах и сферах роста. Поможет принимать решения в гармонии с собой.",
-        reply_markup=ReplyKeyboardMarkup(
-            [["Получить карту"]], resize_keyboard=True
-        ),
+
+    await query.message.reply_text(
+        "Карта предназначения — персональное послание о твоей миссии, талантах и сферах роста. "
+        "Поможет принимать решения в гармонии с собой.",
+        reply_markup=InlineKeyboardMarkup([
+            [InlineKeyboardButton("🔮 Получить карту", callback_data="destiny_card")]
+        ])
     )
 
 async def destiny_card_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
