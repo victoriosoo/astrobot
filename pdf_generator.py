@@ -24,8 +24,8 @@ pdfmetrics.registerFont(TTFont("DejaVuSans-Bold", FONT_BOLD_PATH))
 def draw_watermark(canvas, doc):
     logo_path = os.path.join(os.path.dirname(__file__), "logo.png")
     page_width, page_height = A4
-    logo_width = 250
-    logo_height = 250
+    logo_width = page_width 
+    logo_height = page_height
     x = (page_width - logo_width) / 2
     y = (page_height - logo_height) / 2
     canvas.saveState()
@@ -85,7 +85,7 @@ def text_to_pdf(text: str) -> bytes:
             story.append(HRFlowable(width="100%", thickness=1, color=colors.HexColor("#7C3AED"), spaceBefore=4, spaceAfter=10))
         # Короткая строка — тоже заголовок
         elif (
-            len(block) < 46
+            len(block) < 50
             and not any(ch in block for ch in "-*:;")
             and not re.match(r"^[-•]", block)
             and block != ""
@@ -103,7 +103,7 @@ def text_to_pdf(text: str) -> bytes:
         story.append(Spacer(1, 10))
 
     # QR-код + ссылка внизу
-    qr_img = qrcode.make("https://t.me/CosmoAstroBot")
+    qr_img = qrcode.make("https://t.me/CosmoAstrologyBot")
     buf_qr = io.BytesIO()
     qr_img.save(buf_qr, format='PNG')
     buf_qr.seek(0)
@@ -111,7 +111,7 @@ def text_to_pdf(text: str) -> bytes:
     story.append(Spacer(1, 40))
     story.append(qr_image)
     story.append(Spacer(1, 4))
-    story.append(Paragraph('<font size=10 color="#7C3AED">https://t.me/CosmoAstroBot</font>', styles["Body"]))
+    story.append(Paragraph('<font size=10 color="#7C3AED">https://t.me/CosmoAstrologyBot</font>', styles["Body"]))
 
     doc.build(
         story,
