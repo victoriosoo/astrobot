@@ -85,7 +85,7 @@ def text_to_pdf(text: str) -> bytes:
             story.append(HRFlowable(width="100%", thickness=1, color=colors.HexColor("#7C3AED"), spaceBefore=4, spaceAfter=10))
         # Короткая строка — тоже заголовок
         elif (
-            len(block) < 40
+            len(block) < 46
             and not any(ch in block for ch in "-*:;")
             and not re.match(r"^[-•]", block)
             and block != ""
