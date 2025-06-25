@@ -150,7 +150,7 @@ async def destiny_card_callback(update: Update, context: ContextTypes.DEFAULT_TY
             report_text = ask_gpt(
             messages,
             model="gpt-4-turbo",
-            max_tokens=4200,
+            max_tokens=4096,
             temperature=0.9,
         )
         except Exception as e:
