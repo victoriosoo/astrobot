@@ -76,7 +76,7 @@ def text_to_pdf(text: str) -> bytes:
 
     big_title = Paragraph("Карта предназначения — АстроКотский", styles["BigTitle"])
     cat_avatar_path = os.path.join(os.path.dirname(__file__), "cat_avatar.png")
-    cat_avatar = RLImage(cat_avatar_path, width=300, height=300)
+    cat_avatar = RLImage(cat_avatar_path, width=150, height=150)
     title_table = Table(
     [[big_title, cat_avatar]],
     colWidths=[370, 64],
