@@ -159,7 +159,7 @@ async def destiny_card_callback(update: Update, context: ContextTypes.DEFAULT_TY
             report_part1 = ask_gpt(
                 messages1,
                 model="gpt-4-turbo",
-                max_tokens=2000,
+                max_tokens=2500,
                 temperature=0.9,
             )
 
@@ -168,7 +168,7 @@ async def destiny_card_callback(update: Update, context: ContextTypes.DEFAULT_TY
             report_part2 = ask_gpt(
                 messages2,
                 model="gpt-4-turbo",
-                max_tokens=2000,
+                max_tokens=2500,
                 temperature=0.9,
             )
 
