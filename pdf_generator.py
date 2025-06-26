@@ -86,7 +86,7 @@ def text_to_pdf(text: str) -> bytes:
         # Короткая строка — тоже заголовок
         elif (
             len(block) < 50
-            and not any(ch in block for ch in "-*:;")
+            and not any(ch in block for ch in "*;")
             and not re.match(r"^[-•]", block)
             and block != ""
         ):
