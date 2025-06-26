@@ -11,7 +11,7 @@ import asyncio
 from stripe_client import create_checkout_session
 
 from pdf_generator import text_to_pdf, upload_pdf_to_storage
-from prompts import build_destiny_prompt
+from prompts import build_destiny_prompt_part1, build_destiny_prompt_part2
 from openai_client import ask_gpt
 from supabase_client import get_user, create_user, update_user
 
