@@ -30,7 +30,7 @@ def draw_watermark(canvas, doc):
     y = (page_height - logo_height) / 2
     canvas.saveState()
     try:
-        canvas.setFillAlpha(0.1)  # 10% opacity
+        canvas.setFillAlpha(0.07)  # 10% opacity
     except AttributeError:
         pass
     canvas.drawImage(logo_path, x, y, width=logo_width, height=logo_height, mask='auto')
@@ -73,7 +73,7 @@ def text_to_pdf(text: str) -> bytes:
 
     story = []
 
-    story.append(Paragraph("Карта предназначения — CosmoAstro", styles["BigTitle"]))
+    story.append(Paragraph("Карта предназначения — АстроКотский", styles["BigTitle"]))
     story.append(Spacer(1, 24))
 
     for block in text.strip().split('\n\n'):
