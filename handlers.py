@@ -206,7 +206,7 @@ async def destiny_card_callback(update: Update, context: ContextTypes.DEFAULT_TY
     checkout_url = create_checkout_session(tg_id, "destiny", success_url, cancel_url)
 
     await message.reply_text(
-        "Чтобы получить свой персональный PDF-разбор, скинь коту на консерву по ссылке ниже! 😼👇",
+        "Чтобы увидеть свой звёздный путь — поддержи кота-астролога парой монет на консерву! Ссылка для оплаты ниже 👇",
         reply_markup=InlineKeyboardMarkup([[
             InlineKeyboardButton("💳 Оплатить в Stripe", url=checkout_url)
         ]])
