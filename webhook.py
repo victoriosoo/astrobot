@@ -1,24 +1,18 @@
 import os
 import stripe
 from flask import Flask, request
-import threading
 
-from supabase_client import update_user  # твоя функция обновления пользователя
+from supabase_client import update_user  # Импортируй свою функцию для обновления пользователя
 
-# Новый: для генерации и отправки карты
-from telegram.ext import Application
-from generation import generate_and_send_destiny  # нужно реализовать отдельно (см. выше)
-
-# Маппинг типов продуктов в поле Supabase
+# Маппинг типов продуктов в нужное поле Supabase
 PRODUCTS = {
     "destiny": "paid_destiny",
     "solyar": "paid_solyar",
     "blocks": "paid_blocks",
-    # добавь другие продукты если появятся
+    # Добавь другие продукты при необходимости
 }
 
 WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET")
-TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 
 app = Flask(__name__)
 
@@ -41,22 +35,12 @@ def stripe_webhook():
 
             print(f"[WEBHOOK] Received payment: tg_id={tg_id}, product_type={product_type} (set {paid_field}=True)")
             update_user(tg_id, **{paid_field: True})
-
-            # ⬇⬇⬇ Генерация и отправка карты — отдельный поток, чтобы не тормозить Stripe ⬇⬇⬇
-            def runner():
-                # Создаём отдельный инстанс бота для отправки (не мешает основному)
-                application = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
-                import asyncio
-                asyncio.run(generate_and_send_destiny(application, tg_id))
-            
-            threading.Thread(target=runner).start()
-            # Никакой отправки PDF и Telegram API вызовов в основном потоке!
-
+            # Никакой отправки PDF, никаких Telegram API вызовов!
     except Exception as e:
         import traceback
         print("Webhook handling error:", e)
         traceback.print_exc()
-        # Всегда возвращай 200, чтобы Stripe не спамил повторно!
+        # Всё равно всегда возвращай 200, чтобы Stripe не спамил повторно!
         return "", 200
 
     return "", 200
