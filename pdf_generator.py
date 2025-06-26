@@ -6,6 +6,7 @@ import re
 import qrcode
 
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, HRFlowable, Image
+from reportlab.platypus import Image as RLImage
 from reportlab.lib.units import mm
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.enums import TA_LEFT
@@ -74,6 +75,25 @@ def text_to_pdf(text: str) -> bytes:
     story = []
 
     story.append(Paragraph("Карта предназначения — АстроКотский", styles["BigTitle"]))
+    story.append(Spacer(1, 24))
+
+    big_title = Paragraph("Карта предназначения — АстроКотский", styles["BigTitle"])
+    cat_avatar_path = os.path.join(os.path.dirname(__file__), "cat_avatar.png")
+    cat_avatar = RLImage(cat_avatar_path, width=64, height=64)
+    title_table = Table(
+    [[big_title, cat_avatar]],
+    colWidths=[370, 64],
+    hAlign='LEFT'
+    )
+    title_table.setStyle(TableStyle([
+        ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+        ('ALIGN', (1,0), (1,0), 'RIGHT'),
+        ('LEFTPADDING', (0,0), (-1,-1), 0),
+        ('RIGHTPADDING', (0,0), (-1,-1), 0),
+        ('TOPPADDING', (0,0), (-1,-1), 0),
+        ('BOTTOMPADDING', (0,0), (-1,-1), 0),
+    ]))
+    story.append(title_table)
     story.append(Spacer(1, 24))
 
     for block in text.strip().split('\n\n'):
