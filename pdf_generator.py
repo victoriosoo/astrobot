@@ -6,7 +6,7 @@ import re
 import qrcode
 
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, HRFlowable, Image
-from reportlab.platypus import Image as RLImage
+from reportlab.platypus import Table, TableStyle, Image as RLImage
 from reportlab.lib.units import mm
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.enums import TA_LEFT
