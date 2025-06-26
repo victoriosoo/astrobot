@@ -109,6 +109,8 @@ async def destiny_product(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 async def destiny_card_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    from prompts import build_destiny_prompt_part1, build_destiny_prompt_part2
+
     # Проверяем тип события — callback или обычное сообщение
     if update.callback_query is not None:
         query = update.callback_query
@@ -130,52 +132,69 @@ async def destiny_card_callback(update: Update, context: ContextTypes.DEFAULT_TY
 
     user = user_list[0]
 
-    # Генерируем промпт для GPT
     if user.get("paid_destiny"):
         await message.reply_text(
-        "Начинаю расчёт твоей натальной карты 🌌\n"
-        "Это не шаблон — я использую твои реальные данные.\n"
-        "🕰 Это займёт несколько минут. Как только карта будет готова, пришлю её сюда.\n\n"
-        "Налей пока себе молока, ну или что там пьёшь ☕️"
+            "Начинаю расчёт твоей натальной карты 🌌\n"
+            "Это не шаблон — я использую твои реальные данные.\n"
+            "🕰 Это займёт несколько минут. Как только карта будет готова, пришлю её сюда.\n\n"
+            "Налей пока себе молока, ну или что там пьёшь ☕️"
         )
 
-        messages = build_destiny_prompt(
-        name=user.get("name", "Друг"),
-        date=datetime.strptime(user["birth_date"], "%Y-%m-%d").strftime("%d.%m.%Y"),
-        time_str=user["birth_time"],
-        city=user["birth_city"],
-        country=user["birth_country"],
+        # --------- СТАРТ двойной генерации ---------
+        # Собираем данные для промпта
+        prompt_args = dict(
+            name=user.get("name", "Друг"),
+            date=datetime.strptime(user["birth_date"], "%Y-%m-%d").strftime("%d.%m.%Y"),
+            time_str=user["birth_time"],
+            city=user["birth_city"],
+            country=user["birth_country"],
         )
+
         try:
-            report_text = ask_gpt(
-            messages,
-            model="gpt-4-turbo",
-            max_tokens=4096,
-            temperature=0.9,
-        )
+            # Первая часть (разделы 1-3)
+            messages1 = build_destiny_prompt_part1(**prompt_args)
+            report_part1 = ask_gpt(
+                messages1,
+                model="gpt-4-turbo",
+                max_tokens=2000,
+                temperature=0.9,
+            )
+
+            # Вторая часть (разделы 4-6)
+            messages2 = build_destiny_prompt_part2(**prompt_args)
+            report_part2 = ask_gpt(
+                messages2,
+                model="gpt-4-turbo",
+                max_tokens=2000,
+                temperature=0.9,
+            )
+
+            # Склеиваем обе части
+            report_text = report_part1.strip() + "\n\n" + report_part2.strip()
+
         except Exception as e:
             print("GPT error:", e)
             await message.reply_text("Ошибка генерации. Попробуй позже.")
             return
 
-        # Генерируем PDF и отправляем
+        # --------- Генерация PDF ---------
         try:
             pdf_bytes = text_to_pdf(report_text)
             public_url = upload_pdf_to_storage(user["id"], pdf_bytes)
             await message.reply_document(
-            document=public_url,
-            filename="Karta_Prednaznacheniya.pdf",
-            caption=(
-                "Готово! Я собрал твою натальную карту 🔮\n"
-                "Вот твоя Карта Предназначения — с подсказками о том, где твои сильные стороны, "
-                "на чём стоит строить реализацию и чего лучше избегать.\n\n"
-                "Вперёд к лучшей версии себя!"
-            ),
-        )
+                document=public_url,
+                filename="Karta_Prednaznacheniya.pdf",
+                caption=(
+                    "Готово! Я собрал твою натальную карту 🔮\n"
+                    "Вот твоя Карта Предназначения — с подсказками о том, где твои сильные стороны, "
+                    "на чём стоит строить реализацию и чего лучше избегать.\n\n"
+                    "Вперёд к лучшей версии себя!"
+                ),
+            )
         except Exception as e:
             print("PDF/upload error:", e)
             await message.reply_text(
-            "Карта готова, но файл не прикрепился 😔. Вот текст:\n\n" + report_text
+                "Карта готова, но файл не прикрепился 😔. Вот текст:\n\n" + report_text
             )
         return
 
