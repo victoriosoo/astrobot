@@ -79,7 +79,7 @@ def text_to_pdf(text: str) -> bytes:
     cat_avatar = RLImage(cat_avatar_path, width=150, height=150)
     title_table = Table(
     [[big_title, cat_avatar]],
-    colWidths=[370, 64],
+    colWidths=[440, 90],
     hAlign='LEFT'
     )
     title_table.setStyle(TableStyle([
