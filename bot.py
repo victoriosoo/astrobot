@@ -5,7 +5,8 @@ from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, Cal
 
 from handlers import (
     start, ask_birth, ask_time, ask_location, save_profile,
-    cancel, destiny_product, solyar_product, destiny_card_callback, solyar_card_callback, 
+    cancel, destiny_product, solyar_product, destiny_card_callback, solyar_card_callback,
+    income_product, income_card_callback,
     READY, DATE, TIME, LOCATION
 )
 
@@ -36,6 +37,9 @@ if __name__ == "__main__":
     app.add_handler(MessageHandler(filters.Regex(r"^🗺️ Годовой путь \(Соляр\)$"), solyar_product))
     app.add_handler(MessageHandler(filters.Regex(r"^Получить соляр$"), solyar_card_callback))
     app.add_handler(CallbackQueryHandler(solyar_card_callback, pattern=r"^solyar_card$"))
+    app.add_handler(MessageHandler(filters.Regex(r"^💸 Карьера и доход$"), income_product))
+    app.add_handler(MessageHandler(filters.Regex(r"^Получить разбор карьеры$"), income_card_callback))
+    app.add_handler(CallbackQueryHandler(income_card_callback, pattern=r"^income_card$"))
 
     logger.info("Bot started")
     app.run_polling()

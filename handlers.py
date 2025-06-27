@@ -100,6 +100,7 @@ async def save_profile(update: Update, context: ContextTypes.DEFAULT_TYPE):
         [
             ["📜 Карта предназначения"],
             ["🗺️ Годовой путь (Соляр)"],
+            ["💸 Карьера и доход"]
         ],
         resize_keyboard=True
     ),
@@ -135,6 +136,24 @@ async def solyar_product(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "Готов(а) узнать свой путь на год вперёд?",
         reply_markup=ReplyKeyboardMarkup(
             [["Получить соляр"]],
+            resize_keyboard=True
+        ),
+    )
+async def income_product(update, context):
+    await update.message.reply_text(
+        "💸 Карьера и доход — астрологический разбор твоих финансовых талантов, блоков и перспектив!\n"
+        "Что внутри:\n"
+        "• Общий потенциал по деньгам и карьере\n"
+        "• Финансовые установки и денежное мышление\n"
+        "• Оптимальный стиль работы: фриланс, найм, бизнес\n"
+        "• Карьерный вектор: куда идти, где поддержка\n"
+        "• Лучшие месяцы для изменений, повышения, запусков\n"
+        "• Главные блоки — что мешает расти\n"
+        "• Персональные рекомендации и мини-чеклист\n\n"
+        "Почувствуй, что контролируешь свой доход и карьеру, а не просто плывёшь по течению. Мяу!\n\n"
+        "Готов(а) узнать разбор своей денежной карты?",
+        reply_markup=ReplyKeyboardMarkup(
+            [["Получить разбор карьеры"]],
             resize_keyboard=True
         ),
     )
@@ -322,4 +341,79 @@ async def solyar_card_callback(update, context):
         "⚡️ После оплаты возвращайся и снова жми «Получить соляр». Всё сделаю быстро и по-честному. Мяу 🐾"
     )    
 
+async def income_card_callback(update, context):
+    from prompts import build_income_prompt
+
+    if update.callback_query is not None:
+        query = update.callback_query
+        await query.answer()
+        tg_id = query.from_user.id
+        message = query.message
+    else:
+        query = None
+        tg_id = update.effective_user.id
+        message = update.message
+
+    user_list = get_user(tg_id)
+    if not user_list:
+        await message.reply_text("Не найден профиль. Пройди /start.")
+        return
+
+    user = user_list[0]
+
+    if user.get("paid_income"):
+        await message.reply_text(
+            "Мяу! Делаю разбор по деньгам и карьере. Хвостом чую: сейчас тебе откроются новые горизонты!"
+        )
+
+        prompt_args = dict(
+            name=user.get("name", "Друг"),
+            date=datetime.strptime(user["birth_date"], "%Y-%m-%d").strftime("%d.%m.%Y"),
+            time_str=user["birth_time"],
+            city=user["birth_city"],
+            country=user["birth_country"],
+        )
+
+        try:
+            messages = build_income_prompt(**prompt_args)
+            report_text = ask_gpt(
+                messages,
+                model="gpt-3.5-turbo",
+                max_tokens=3000,
+                temperature=0.9,
+            )
+        except Exception as e:
+            print("GPT error:", e)
+            await message.reply_text("Ошибка генерации. Попробуй позже.")
+            return
+
+        try:
+            pdf_bytes = text_to_pdf(report_text, product_type="income")
+            public_url = upload_pdf_to_storage(user["id"], pdf_bytes)
+            await message.reply_document(
+                document=public_url,
+                filename="Income_Report.pdf",
+                caption=(
+                    "Вот твой астрологический разбор по деньгам и карьере! Изучи советы кота, внедряй чеклист и чувствуй себя увереннее в финансовых вопросах. Мяу!"
+                ),
+            )
+        except Exception as e:
+            print("PDF/upload error:", e)
+            await message.reply_text(
+                "Разбор готов, но файл не прикрепился 😔. Вот текст:\n\n" + report_text
+            )
+        return
+
+    # Если не оплачен — предлагай оплатить
+    success_url = "https://t.me/CosmoAstrologyBot"
+    cancel_url = "https://t.me/CosmoAstrologyBot"
+    checkout_url = create_checkout_session(tg_id, "income", success_url, cancel_url)
+
+    await message.reply_text(
+        "Карьерный разбор — платный продукт. Поддержи кота-астролога и получи свой персональный денежный разбор! Оплата ниже 👇",
+        reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("💳 Оплатить в Stripe", url=checkout_url)]])
+    )
+    await message.reply_text(
+        "⚡️ После оплаты возвращайся и снова жми «Получить разбор карьеры». Всё сделаю быстро и по-честному. Мяу 🐾"
+    )
 

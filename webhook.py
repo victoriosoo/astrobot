@@ -9,6 +9,7 @@ PRODUCTS = {
     "destiny": "paid_destiny",
     "solyar": "paid_solyar",
     "blocks": "paid_blocks",
+    "income": "paid_income",
     # Добавь другие продукты при необходимости
 }
 
