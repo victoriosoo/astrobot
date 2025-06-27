@@ -12,7 +12,7 @@ import os
 from stripe_client import create_checkout_session
 
 from pdf_generator import text_to_pdf, upload_pdf_to_storage
-from prompts import build_destiny_prompt_part1, build_destiny_prompt_part2
+from prompts import build_destiny_prompt_part1, build_destiny_prompt_part2, build_solyar_prompt_part1, build_solyar_prompt_part2, build_income_prompt_part1, build_income_prompt_part2
 from openai_client import ask_gpt
 from supabase_client import get_user, create_user, update_user
 
@@ -204,7 +204,7 @@ async def destiny_card_callback(update: Update, context: ContextTypes.DEFAULT_TY
             messages1 = build_destiny_prompt_part1(**prompt_args)
             report_part1 = ask_gpt(
                 messages1,
-                model="gpt-3.5-turbo",
+                model="gpt-4-turbo",
                 max_tokens=2500,
                 temperature=0.9,
             )
@@ -213,7 +213,7 @@ async def destiny_card_callback(update: Update, context: ContextTypes.DEFAULT_TY
             messages2 = build_destiny_prompt_part2(**prompt_args)
             report_part2 = ask_gpt(
                 messages2,
-                model="gpt-3.5-turbo",
+                model="gpt-4-turbo",
                 max_tokens=2500,
                 temperature=0.9,
             )
@@ -264,7 +264,7 @@ async def destiny_card_callback(update: Update, context: ContextTypes.DEFAULT_TY
     )
 
 async def solyar_card_callback(update, context):
-    from prompts import build_solyar_prompt
+    from prompts import build_solyar_prompt_part1, build_solyar_prompt_part2
 
     if update.callback_query is not None:
         query = update.callback_query
@@ -297,13 +297,27 @@ async def solyar_card_callback(update, context):
         )
 
         try:
-            messages = build_solyar_prompt(**prompt_args)
-            report_text = ask_gpt(
-                messages,
-                model="gpt-3.5-turbo",
-                max_tokens=3000,
+            # Первая часть (разделы 1–4)
+            messages1 = build_solyar_prompt_part1(**prompt_args)
+            report_part1 = ask_gpt(
+                messages1,
+                model="gpt-4-turbo",
+                max_tokens=2500,
                 temperature=0.9,
             )
+
+            # Вторая часть (разделы 5–7)
+            messages2 = build_solyar_prompt_part2(**prompt_args)
+            report_part2 = ask_gpt(
+                messages2,
+                model="gpt-4-turbo",
+                max_tokens=2500,
+                temperature=0.9,
+            )
+
+            # Склеиваем обе части
+            report_text = report_part1.strip() + "\n\n" + report_part2.strip()
+
         except Exception as e:
             print("GPT error:", e)
             await message.reply_text("Ошибка генерации. Попробуй позже.")
@@ -333,16 +347,14 @@ async def solyar_card_callback(update, context):
 
     await message.reply_text(
         "Годовой путь (соляр) — платный продукт. Поддержи кота-астролога парой монет и получи персональный навигатор по твоему году. Оплата ниже 👇",
-        reply_markup=InlineKeyboardMarkup([[
-            InlineKeyboardButton("💳 Оплатить в Stripe", url=checkout_url)
-        ]])
+        reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("💳 Оплатить в Stripe", url=checkout_url)]])
     )
     await message.reply_text(
         "⚡️ После оплаты возвращайся и снова жми «Получить соляр». Всё сделаю быстро и по-честному. Мяу 🐾"
-    )    
+    )
 
 async def income_card_callback(update, context):
-    from prompts import build_income_prompt
+    from prompts import build_income_prompt_part1, build_income_prompt_part2
 
     if update.callback_query is not None:
         query = update.callback_query
@@ -375,13 +387,26 @@ async def income_card_callback(update, context):
         )
 
         try:
-            messages = build_income_prompt(**prompt_args)
-            report_text = ask_gpt(
-                messages,
-                model="gpt-3.5-turbo",
-                max_tokens=3000,
+            # Первая часть (потенциал, установки, стиль, вектор)
+            messages1 = build_income_prompt_part1(**prompt_args)
+            report_part1 = ask_gpt(
+                messages1,
+                model="gpt-4-turbo",
+                max_tokens=2500,
                 temperature=0.9,
             )
+
+            # Вторая часть (когда менять, что мешает, рекомендации)
+            messages2 = build_income_prompt_part2(**prompt_args)
+            report_part2 = ask_gpt(
+                messages2,
+                model="gpt-4-turbo",
+                max_tokens=2500,
+                temperature=0.9,
+            )
+
+            report_text = report_part1.strip() + "\n\n" + report_part2.strip()
+
         except Exception as e:
             print("GPT error:", e)
             await message.reply_text("Ошибка генерации. Попробуй позже.")
@@ -411,7 +436,7 @@ async def income_card_callback(update, context):
 
     await message.reply_text(
         "Карьерный разбор — платный продукт. Поддержи кота-астролога и получи свой персональный денежный разбор! Оплата ниже 👇",
-        reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("💳 Оплатить в Stripe", url=checkout_url)]])
+        reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("💳 Оплатить в Stripe", url=checkout_url)]]),
     )
     await message.reply_text(
         "⚡️ После оплаты возвращайся и снова жми «Получить разбор карьеры». Всё сделаю быстро и по-честному. Мяу 🐾"
