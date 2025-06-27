@@ -7,6 +7,7 @@ from telegram.ext import (
 )
 from datetime import datetime
 import asyncio
+import os
 
 from stripe_client import create_checkout_session
 
@@ -26,9 +27,10 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not get_user(tg_id):
         create_user(tg_id, name)
 
-    # Сначала анимация + короткий текст (caption)
+    static_path = os.path.join(os.path.dirname(__file__), "static")
+    animation_path = os.path.join(static_path, "cat_intro.mp4")
     await update.message.reply_animation(
-        animation=open("cat_intro.mp4", "rb"),  # или .gif, путь укажи свой!
+        animation=open(animation_path, "rb"),
         caption=(
             "Мяу, приветствую тебя на звёздной территории! Я — Кот АстроКот, твой личный проводник по вселенским дорогам. 🐈‍⬛\n"
             "Я не просто кот, я черный как сама космическая ночь, а ещё умею читать натальные карты.\n"

@@ -23,7 +23,7 @@ pdfmetrics.registerFont(TTFont("DejaVuSans", FONT_PATH))
 pdfmetrics.registerFont(TTFont("DejaVuSans-Bold", FONT_BOLD_PATH))
 
 def draw_watermark(canvas, doc):
-    logo_path = os.path.join(os.path.dirname(__file__), "logo.png")
+    logo_path = os.path.join(os.path.dirname(__file__), "static", "logo.png")
     page_width, page_height = A4
     logo_width = page_width 
     logo_height = page_height
@@ -75,7 +75,7 @@ def text_to_pdf(text: str) -> bytes:
     story = []
 
     big_title = Paragraph("Карта предназначения — АстроКотский", styles["BigTitle"])
-    cat_avatar_path = os.path.join(os.path.dirname(__file__), "cat_avatar.png")
+    cat_avatar_path = os.path.join(os.path.dirname(__file__), "static", "cat_avatar.png")
     cat_avatar = RLImage(cat_avatar_path, width=165, height=165)
     title_table = Table(
     [[big_title, cat_avatar]],
