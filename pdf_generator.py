@@ -37,7 +37,7 @@ def draw_watermark(canvas, doc):
     canvas.drawImage(logo_path, x, y, width=logo_width, height=logo_height, mask='auto')
     canvas.restoreState()
 
-def text_to_pdf(text: str) -> bytes:
+def text_to_pdf(text: str, product_type="destiny") -> bytes:
     buf = io.BytesIO()
     doc = SimpleDocTemplate(
         buf, pagesize=A4, leftMargin=40, rightMargin=40, topMargin=50, bottomMargin=50

@@ -291,7 +291,7 @@ async def solyar_card_callback(update, context):
             return
 
         try:
-            pdf_bytes = text_to_pdf(report_text)
+            pdf_bytes = text_to_pdf(report_text, product_type="solyar")
             public_url = upload_pdf_to_storage(user["id"], pdf_bytes)
             await message.reply_document(
                 document=public_url,
