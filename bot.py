@@ -4,9 +4,9 @@ from dotenv import load_dotenv
 from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, CallbackQueryHandler, ConversationHandler, filters
 
 from handlers import (
-    start, ask_birth, ask_time, ask_location, save_profile,
+    start, ask_birth, ask_time, ask_location, save_profile, main_menu,
     cancel, destiny_product, solyar_product, destiny_card_callback, solyar_card_callback,
-    income_product, income_card_callback,
+    income_product, income_card_callback, 
     READY, DATE, TIME, LOCATION
 )
 
@@ -31,6 +31,8 @@ if __name__ == "__main__":
     )
 
     app.add_handler(conv_handler)
+    app.add_handler(MessageHandler(filters.Regex(r"^В главное меню$"), main_menu))
+    app.add_handler(CommandHandler("menu", main_menu))
     app.add_handler(MessageHandler(filters.Regex(r"^📜 Карта предназначения$"), destiny_product))
     app.add_handler(MessageHandler(filters.Regex(r"^Получить карту$"), destiny_card_callback))
     app.add_handler(CallbackQueryHandler(destiny_card_callback, pattern=r"^destiny_card$"))
