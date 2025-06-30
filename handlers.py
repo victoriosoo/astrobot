@@ -539,6 +539,20 @@ async def compatibility_card_callback(update, context):
     user_tg = update.effective_user
     user_db = get_user(user_tg.id)[0]
 
+    # Проверка оплаты
+    if not user_db.get("paid_compatibility"):
+        success_url = "https://t.me/CosmoAstrologyBot"
+        cancel_url = "https://t.me/CosmoAstrologyBot"
+        checkout_url = create_checkout_session(user_tg.id, "compatibility", success_url, cancel_url)
+        await update.message.reply_text(
+            "Разбор совместимости — платный продукт. Оплати ниже 👇",
+            reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("💳 Оплатить в Stripe", url=checkout_url)]])
+        )
+        await update.message.reply_text(
+            "После оплаты возвращайся и снова жми «Проверить совместимость». Кот всё честно проверит по звёздам! Мяу 🐾"
+        )
+        return
+
     user = {
         "name": user_db.get("name", "Клиент"),
         "birth_date": datetime.strptime(user_db["birth_date"], "%Y-%m-%d").strftime("%d.%m.%Y"),
@@ -573,7 +587,7 @@ async def compatibility_card_callback(update, context):
 
     try:
         pdf_bytes = text_to_pdf(report_text, product_type="compatibility")
-        public_url = upload_pdf_to_storage(user["id"], pdf_bytes)
+        public_url = upload_pdf_to_storage(user_db["id"], pdf_bytes)
         await update.message.reply_document(
             document=public_url,
             filename="Compatibility_Report.pdf",
@@ -583,6 +597,13 @@ async def compatibility_card_callback(update, context):
         await main_menu(update, context)
     except Exception as e:
         print("PDF/upload error:", e)
-        await update.message.reply_text(
-            "Совместимость готова, но файл не прикрепился 😔. Вот текст:\n\n" + report_text
+        # Безопасно отправляем длинный текст как файл, чтобы не было ошибки Telegram
+        from io import BytesIO
+        text_io = BytesIO(report_text.encode("utf-8"))
+        text_io.name = "compatibility.txt"
+        text_io.seek(0)
+        await update.message.reply_document(
+            document=text_io,
+            filename="compatibility.txt",
+            caption="Совместимость готова, но PDF не прикрепился. Вот полный текст:"
         )
