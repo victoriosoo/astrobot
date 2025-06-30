@@ -539,17 +539,20 @@ async def compatibility_card_callback(update, context):
     user_tg = update.effective_user
     user_db = get_user(user_tg.id)[0]
 
-    # Проверка оплаты
     if not user_db.get("paid_compatibility"):
         success_url = "https://t.me/CosmoAstrologyBot"
         cancel_url = "https://t.me/CosmoAstrologyBot"
         checkout_url = create_checkout_session(user_tg.id, "compatibility", success_url, cancel_url)
         await update.message.reply_text(
-            "Разбор совместимости — платный продукт. Оплати ниже 👇",
+            "Поддержи кота-астролога и получи разбор совместимости по дате рождения! Оплата ниже 👇",
             reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("💳 Оплатить в Stripe", url=checkout_url)]])
         )
         await update.message.reply_text(
-            "После оплаты возвращайся и снова жми «Проверить совместимость». Кот всё честно проверит по звёздам! Мяу 🐾"
+            "После оплаты снова нажми кнопку ниже, чтобы получить свой разбор.",
+            reply_markup=ReplyKeyboardMarkup(
+                [["Проверить совместимость"], ["В главное меню"]],
+                resize_keyboard=True
+            )
         )
         return
 
