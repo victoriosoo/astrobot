@@ -10,6 +10,7 @@ PRODUCTS = {
     "solyar": "paid_solyar",
     "blocks": "paid_blocks",
     "income": "paid_income",
+    "compatibility": "paid_compatibility"
     # Добавь другие продукты при необходимости
 }
 

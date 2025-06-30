@@ -12,7 +12,7 @@ import os
 from stripe_client import create_checkout_session
 
 from pdf_generator import text_to_pdf, upload_pdf_to_storage
-from prompts import build_destiny_prompt_part1, build_destiny_prompt_part2, build_solyar_prompt_part1, build_solyar_prompt_part2, build_income_prompt_part1, build_income_prompt_part2
+from prompts import build_destiny_prompt_part1, build_destiny_prompt_part2, build_solyar_prompt_part1, build_solyar_prompt_part2, build_income_prompt_part1, build_income_prompt_part2, build_compatibility_prompt_part1, build_compatibility_prompt_part2
 from openai_client import ask_gpt
 from supabase_client import get_user, create_user, update_user
 
@@ -106,9 +106,8 @@ async def main_menu(update, context):
         "Главное меню:\n\nВыбери, какой разбор хочешь получить:",
         reply_markup=ReplyKeyboardMarkup(
             [
-                ["📜 Карта предназначения"],
-                ["🗺️ Годовой путь (Соляр)"],
-                ["💸 Карьера и доход"]
+                ["📜 Карта предназначения"],["🗺️ Годовой путь (Соляр)"],
+                ["💸 Карьера и доход"],["💞 Совместимость по дате рождения"]
             ],
             resize_keyboard=True
         ),
@@ -168,6 +167,21 @@ async def income_product(update, context):
         reply_markup=ReplyKeyboardMarkup(
             [
                 ["Получить разбор карьеры"],
+                ["В главное меню"]
+            ],
+            resize_keyboard=True
+        ),
+    )
+async def compatibility_product(update, context):
+    await update.message.reply_text(
+        "Совместимость по дате рождения — это не просто штамп «подходите или нет», а кото-раскладка на ваши отношения, где каждая полоска шерсти имеет значение!\n"
+        "Этот разбор покажет, какие эмоции у вас в лапах, кто мурлычет от заботы, а кто иногда шипит от недопонимания. Я изучу ваши звёздные астропрофили: найду, где искра притяжения, а где можно запутаться в клубке противоречий.\n"
+        "Вы узнаете, как гармонично вместе обустроить свой кошачий уют, что может быть камнем преткновения, и как вместе обойти лужи недопонимания.\n"
+        "Разбор даст не только картину ваших характеров, но и конкретные подсказки: когда погладить друг друга против шерсти, а когда вместе прыгать за одной мечтой. Мяу!\n\n"
+        "Ну что, готов(а) узнать, что на самом деле связывает ваши звёзды и куда кото-астролог советует направить свои усы?",
+        reply_markup=ReplyKeyboardMarkup(
+            [
+                ["Проверить совместимость"],
                 ["В главное меню"]
             ],
             resize_keyboard=True
@@ -472,4 +486,103 @@ async def income_card_callback(update, context):
     await message.reply_text(
         "⚡️ После оплаты возвращайся и снова жми «Получить разбор карьеры». Всё сделаю быстро и по-честному. Мяу 🐾"
     )
+COMPAT_NAME, COMPAT_DATE, COMPAT_TIME, COMPAT_LOCATION = range(100, 104)  # значения для новой цепочки
 
+async def start_compatibility(update, context):
+    await update.message.reply_text(
+        "Введи имя или пометку для второго человека (например, «Виктор» или «Партнёр»):",
+        reply_markup=ReplyKeyboardRemove()
+    )
+    return COMPAT_NAME
+
+async def get_partner_name(update, context):
+    context.user_data["partner_name"] = update.message.text.strip()
+    await update.message.reply_text("Теперь введи дату рождения партнёра (ДД.ММ.ГГГГ):")
+    return COMPAT_DATE
+
+async def get_partner_date(update, context):
+    try:
+        context.user_data["partner_birth_date"] = datetime.strptime(update.message.text.strip(), "%d.%m.%Y").date()
+        await update.message.reply_text("Время рождения партнёра (ЧЧ:ММ) или напиши «не знаю»:")
+        return COMPAT_TIME
+    except Exception:
+        await update.message.reply_text("Формат даты не распознан. Пример: 15.01.1992")
+        return COMPAT_DATE
+
+async def get_partner_time(update, context):
+    t = update.message.text.strip()
+    if t.lower() == "не знаю":
+        context.user_data["partner_birth_time"] = None
+    else:
+        try:
+            context.user_data["partner_birth_time"] = datetime.strptime(t, "%H:%M").time()
+        except Exception:
+            await update.message.reply_text("Формат времени не распознан. Пример: 08:30 или напиши «не знаю»")
+            return COMPAT_TIME
+    await update.message.reply_text("Страна и город рождения партнёра (например: Россия, Москва) или «не знаю»:")
+    return COMPAT_LOCATION
+
+async def get_partner_location(update, context):
+    text = update.message.text.strip()
+    if text.lower() == "не знаю":
+        context.user_data["partner_country"] = None
+        context.user_data["partner_city"] = None
+    else:
+        parts = [p.strip() for p in text.split(",")]
+        context.user_data["partner_country"] = parts[0] if len(parts) > 0 else None
+        context.user_data["partner_city"] = parts[1] if len(parts) > 1 else None
+    # Дальше — вызов генерации PDF
+    await compatibility_card_callback(update, context)
+    return ConversationHandler.END
+
+async def compatibility_card_callback(update, context):
+    user_tg = update.effective_user
+    user_db = get_user(user_tg.id)[0]
+
+    user = {
+        "name": user_db.get("name", "Клиент"),
+        "birth_date": datetime.strptime(user_db["birth_date"], "%Y-%m-%d").strftime("%d.%m.%Y"),
+        "birth_time": user_db.get("birth_time"),
+        "birth_city": user_db.get("birth_city"),
+        "birth_country": user_db.get("birth_country"),
+    }
+    partner = {
+        "name": context.user_data.get("partner_name", "Партнёр"),
+        "birth_date": context.user_data.get("partner_birth_date").strftime("%d.%m.%Y"),
+        "birth_time": context.user_data.get("partner_birth_time"),
+        "birth_city": context.user_data.get("partner_city"),
+        "birth_country": context.user_data.get("partner_country"),
+    }
+
+    await update.message.reply_text(
+        "Мяу! Начинаю разбор совместимости. Лапы чешутся узнать всё про ваши звёзды — жди подробный PDF!"
+    )
+
+    try:
+        messages1 = build_compatibility_prompt_part1(user, partner)
+        report_part1 = ask_gpt(messages1, model="gpt-4-turbo", max_tokens=2500, temperature=0.9)
+
+        messages2 = build_compatibility_prompt_part2(user, partner)
+        report_part2 = ask_gpt(messages2, model="gpt-4-turbo", max_tokens=2500, temperature=0.9)
+
+        report_text = report_part1.strip() + "\n\n" + report_part2.strip()
+    except Exception as e:
+        print("GPT error:", e)
+        await update.message.reply_text("Ошибка генерации. Попробуй позже.")
+        return
+
+    try:
+        pdf_bytes = text_to_pdf(report_text, product_type="compatibility")
+        public_url = upload_pdf_to_storage(user["id"], pdf_bytes)
+        await update.message.reply_document(
+            document=public_url,
+            filename="Compatibility_Report.pdf",
+            caption="Вот твой разбор совместимости! Мяу!"
+        )
+        await asyncio.sleep(2)
+        await main_menu(update, context)
+    except Exception as e:
+        print("PDF/upload error:", e)
+        await update.message.reply_text(
+            "Совместимость готова, но файл не прикрепился 😔. Вот текст:\n\n" + report_text
+        )

@@ -80,6 +80,9 @@ def text_to_pdf(text: str, product_type="destiny") -> bytes:
         big_title = Paragraph("Карьерный разбор — АстроКотский", styles["BigTitle"])
     else:
         big_title = Paragraph("Карта предназначения — АстроКотский", styles["BigTitle"])
+    if product_type == "compatibility":
+        big_title = Paragraph("Совместимость — АстроКотский", styles["BigTitle"])
+
 
     cat_avatar_path = os.path.join(os.path.dirname(__file__), "static", "cat_avatar.png")
     cat_avatar = RLImage(cat_avatar_path, width=165, height=165)
