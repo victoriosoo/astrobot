@@ -9,6 +9,7 @@ from handlers import (
     income_product, income_card_callback,
     compatibility_product,
     start_compatibility, get_partner_name, get_partner_date, get_partner_time, get_partner_location,
+    COMPAT_NAME, COMPAT_DATE, COMPAT_TIME, COMPAT_LOCATION,
     READY, DATE, TIME, LOCATION
 )
 
