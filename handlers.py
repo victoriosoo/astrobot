@@ -259,7 +259,7 @@ async def destiny_card_callback(update: Update, context: ContextTypes.DEFAULT_TY
             pdf_bytes = text_to_pdf(report_text)
             public_url = upload_pdf_to_storage(user["id"], pdf_bytes)
             # Сохраняем ссылку в базе
-            update_user(user["id"], destiny_pdf_url=public_url)
+            update_user(user["tg_id"], destiny_pdf_url=public_url)
             await message.reply_document(
                 document=public_url,
                 filename="Karta_Prednaznacheniya.pdf",
