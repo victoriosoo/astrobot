@@ -190,8 +190,9 @@ async def compatibility_product(update, context):
 
 async def destiny_card_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     from prompts import build_destiny_prompt_part1, build_destiny_prompt_part2
+    from supabase_client import update_user
 
-    # Проверяем тип события — callback или обычное сообщение
+    # Определяем тип события
     if update.callback_query is not None:
         query = update.callback_query
         await query.answer()
@@ -204,7 +205,6 @@ async def destiny_card_callback(update: Update, context: ContextTypes.DEFAULT_TY
 
     print("CALLBACK TRIGGERED SECOND", flush=True)
 
-    # Получаем пользователя из базы
     user_list = get_user(tg_id)
     if not user_list:
         await message.reply_text("Не найден профиль. Пройди /start.")
@@ -212,15 +212,31 @@ async def destiny_card_callback(update: Update, context: ContextTypes.DEFAULT_TY
 
     user = user_list[0]
 
+    # --- ЕСЛИ ПРОДУКТ ОПЛАЧЕН ---
     if user.get("paid_destiny"):
+        # Если есть сохранённая ссылка на PDF — присылаем тот же файл!
+        if user.get("destiny_pdf_url"):
+            await message.reply_document(
+                document=user["destiny_pdf_url"],
+                filename="Karta_Prednaznacheniya.pdf",
+                caption=(
+                    "Мяу, миссия выполнена! Вот твоя личная натальная карта — не сырая копия из интернета, а настоящий кото-разбор с характером.\n"
+                    "Изучи внимательно, мурлыкни благодарность звёздам и помни — даже самая мудрая кошка иногда промахивается, но всегда падает на лапы. Вперёд к своему предназначению!"
+                ),
+            )
+            await asyncio.sleep(2)
+            await message.reply_text(
+                "Хочешь изучить другие разборы? Вернись в главное меню:",
+                reply_markup=ReplyKeyboardMarkup([["В главное меню"]], resize_keyboard=True)
+            )
+            return
+
+        # Если оплачен, но файла нет (старые юзеры, миграция) — генерим PDF и сохраняем ссылку
         await message.reply_text(
             "Мяу! Приступаю к разгадыванию твоей звёздной судьбы — буду колдовать над натальной картой лично, лапой на сердце!\n"
             "Это не очередной шаблон с балкона — всё строго по твоим данным, как и полагается уважающему себя коту-астрологу.\n"
             "Наберись терпения, займёт пару минут... А пока налей себе молока (или, на крайний случай, чаю), расслабь хвост и помурлыкай о чём-нибудь хорошем. Скоро вернусь с результатами!"
         )
-
-        # --------- СТАРТ двойной генерации ---------
-        # Собираем данные для промпта
         prompt_args = dict(
             name=user.get("name", "Друг"),
             date=datetime.strptime(user["birth_date"], "%Y-%m-%d").strftime("%d.%m.%Y"),
@@ -228,44 +244,27 @@ async def destiny_card_callback(update: Update, context: ContextTypes.DEFAULT_TY
             city=user["birth_city"],
             country=user["birth_country"],
         )
-
         try:
-            # Первая часть (разделы 1-3)
             messages1 = build_destiny_prompt_part1(**prompt_args)
-            report_part1 = ask_gpt(
-                messages1,
-                model="gpt-4-turbo",
-                max_tokens=2500,
-                temperature=0.9,
-            )
-
-            # Вторая часть (разделы 4-6)
+            report_part1 = ask_gpt(messages1, model="gpt-4-turbo", max_tokens=2500, temperature=0.9)
             messages2 = build_destiny_prompt_part2(**prompt_args)
-            report_part2 = ask_gpt(
-                messages2,
-                model="gpt-4-turbo",
-                max_tokens=2500,
-                temperature=0.9,
-            )
-
-            # Склеиваем обе части
+            report_part2 = ask_gpt(messages2, model="gpt-4-turbo", max_tokens=2500, temperature=0.9)
             report_text = report_part1.strip() + "\n\n" + report_part2.strip()
-
         except Exception as e:
             print("GPT error:", e)
             await message.reply_text("Ошибка генерации. Попробуй позже.")
             return
 
-        # --------- Генерация PDF ---------
         try:
             pdf_bytes = text_to_pdf(report_text)
             public_url = upload_pdf_to_storage(user["id"], pdf_bytes)
+            # Сохраняем ссылку в базе
+            update_user(user["id"], destiny_pdf_url=public_url)
             await message.reply_document(
                 document=public_url,
                 filename="Karta_Prednaznacheniya.pdf",
                 caption=(
                     "Мяу, миссия выполнена! Вот твоя личная натальная карта — не сырая копия из интернета, а настоящий кото-разбор с характером.\n"
-                    "Здесь ты найдёшь подсказки, куда стоит направить свои когти, в чём твои сильные стороны и каких ловушек судьбы лучше избегать.\n\n"
                     "Изучи внимательно, мурлыкни благодарность звёздам и помни — даже самая мудрая кошка иногда промахивается, но всегда падает на лапы. Вперёд к своему предназначению!"
                 ),
             )
@@ -276,12 +275,18 @@ async def destiny_card_callback(update: Update, context: ContextTypes.DEFAULT_TY
             )
         except Exception as e:
             print("PDF/upload error:", e)
-            await message.reply_text(
-                "Карта готова, но файл не прикрепился 😔. Вот текст:\n\n" + report_text
+            from io import BytesIO
+            text_io = BytesIO(report_text.encode("utf-8"))
+            text_io.name = "destiny.txt"
+            text_io.seek(0)
+            await message.reply_document(
+                document=text_io,
+                filename="destiny.txt",
+                caption="Карта готова, но PDF не прикрепился. Вот текст:"
             )
         return
 
-    # Если оплата не прошла — предлагаем оплатить
+    # --- ЕСЛИ ПРОДУКТ НЕ ОПЛАЧЕН ---
     success_url = "https://t.me/CosmoAstrologyBot"
     cancel_url = "https://t.me/CosmoAstrologyBot"
     checkout_url = create_checkout_session(tg_id, "destiny", success_url, cancel_url)
@@ -293,9 +298,9 @@ async def destiny_card_callback(update: Update, context: ContextTypes.DEFAULT_TY
         ]])
     )
     await message.reply_text(
-    "⚡️ После оплаты возвращайся в этот чат и снова жми «Получить карту» — я уже буду мурлыкать в ожидании!\n"
-    "Платёж под защитой, как кот под пледом. Обычно обработка занимает пару минут (успеешь налить себе молока).\n"
-    "Спасибо, что поддерживаешь АстроКотского! Мяу 🐾"
+        "⚡️ После оплаты возвращайся в этот чат и снова жми «Получить карту» — я уже буду мурлыкать в ожидании!\n"
+        "Платёж под защитой, как кот под пледом. Обычно обработка занимает пару минут (успеешь налить себе молока).\n"
+        "Спасибо, что поддерживаешь АстроКотского! Мяу 🐾"
     )
 
 async def solyar_card_callback(update, context):
