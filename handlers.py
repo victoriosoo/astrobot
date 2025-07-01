@@ -124,6 +124,7 @@ async def destiny_product(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "С ней ты узнаешь, какие таланты у тебя в лапах с рождения, где прячутся твои внутренние резервы и как выбраться из любой жизненной коробки, даже если она кажется слишком тесной.\n"
         "Эта карта — твой личный путеводитель: расскажет, куда стоит выпустить когти, а куда лучше идти, мягко ступая по мохнатой дорожке.\n"
         "Ну что, готов(а) узнать, куда тебя зовут звёзды и кото-астролог?",
+        "\n\nСтоимость разбора — 4.99€. Оплата будет предложена после подтверждения.",
         reply_markup=ReplyKeyboardMarkup(
             [
                 ["Получить карту"],
@@ -134,8 +135,8 @@ async def destiny_product(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def solyar_product(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
-        "🗺️ Годовой путь (Соляр) — твой персональный астропрогноз на ближайший год!\n"
-        "Соляр покажет:\n"
+        "🗺️ Годовой путь  — твой персональный астропрогноз на ближайший год!\n"
+        "Путь покажет:\n"
         "• Главную тему и задачу года\n"
         "• В каких сферах тебя ждёт рост, а где — вызовы\n"
         "• Предупреждения, кризисы и лучшие месяцы для действий\n"
@@ -143,6 +144,7 @@ async def solyar_product(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "• Энергетические спады и точки перезагрузки\n\n"
         "Это как подробная карта, где отмечены главные дороги, повороты и даже кошачьи тропки, ведущие к успеху! 🐾\n\n"
         "Готов(а) узнать свой путь на год вперёд?",
+        "\n\nСтоимость разбора — 4.99€. Оплата будет предложена после подтверждения.",
         reply_markup=ReplyKeyboardMarkup(
             [
                 ["Получить соляр"],
@@ -164,6 +166,7 @@ async def income_product(update, context):
         "• Персональные рекомендации и мини-чеклист\n\n"
         "Почувствуй, что контролируешь свой доход и карьеру, а не просто плывёшь по течению. Мяу!\n\n"
         "Готов(а) узнать разбор своей денежной карты?",
+        "\n\nСтоимость разбора — 4.99€. Оплата будет предложена после подтверждения.",
         reply_markup=ReplyKeyboardMarkup(
             [
                 ["Получить разбор карьеры"],
@@ -179,6 +182,7 @@ async def compatibility_product(update, context):
         "Вы узнаете, как гармонично вместе обустроить свой кошачий уют, что может быть камнем преткновения, и как вместе обойти лужи недопонимания.\n"
         "Разбор даст не только картину ваших характеров, но и конкретные подсказки: когда погладить друг друга против шерсти, а когда вместе прыгать за одной мечтой. Мяу!\n\n"
         "Ну что, готов(а) узнать, что на самом деле связывает ваши звёзды и куда кото-астролог советует направить свои усы?",
+        "\n\nСтоимость разбора — 4.99€. Оплата будет предложена после подтверждения.",
         reply_markup=ReplyKeyboardMarkup(
             [
                 ["Проверить совместимость"],
@@ -292,7 +296,7 @@ async def destiny_card_callback(update: Update, context: ContextTypes.DEFAULT_TY
     checkout_url = create_checkout_session(tg_id, "destiny", success_url, cancel_url)
 
     await message.reply_text(
-        "Чтобы увидеть свой звёздный путь — поддержи кота-астролога парой монет на консерву! Ссылка для оплаты ниже 👇",
+        "Стоимость: 4.99€. Чтобы увидеть свой звёздный путь — поддержи кота-астролога парой монет на консерву! Ссылка для оплаты ниже 👇",
         reply_markup=InlineKeyboardMarkup([[
             InlineKeyboardButton("💳 Оплатить в Stripe", url=checkout_url)
         ]])
@@ -305,6 +309,7 @@ async def destiny_card_callback(update: Update, context: ContextTypes.DEFAULT_TY
 
 async def solyar_card_callback(update, context):
     from prompts import build_solyar_prompt_part1, build_solyar_prompt_part2
+    from supabase_client import update_user
 
     if update.callback_query is not None:
         query = update.callback_query
@@ -322,6 +327,22 @@ async def solyar_card_callback(update, context):
         return
 
     user = user_list[0]
+
+    # Если куплен и есть ссылка — сразу отдаём PDF
+    if user.get("paid_solyar") and user.get("solyar_pdf_url"):
+        await message.reply_document(
+            document=user["solyar_pdf_url"],
+            filename="Solyar_Report.pdf",
+            caption=(
+                "Мяу, всё готово! Вот твой личный прогноз на год — соляр от АстроКотского. Изучи внимательно, найди сильные и сложные периоды, и помни: твой год — это территория для свершений."
+            ),
+        )
+        await asyncio.sleep(2)
+        await message.reply_text(
+            "Хочешь изучить другие разборы? Вернись в главное меню:",
+            reply_markup=ReplyKeyboardMarkup([["В главное меню"]], resize_keyboard=True)
+        )
+        return
 
     if user.get("paid_solyar"):
         await message.reply_text(
@@ -337,27 +358,11 @@ async def solyar_card_callback(update, context):
         )
 
         try:
-            # Первая часть (разделы 1–4)
             messages1 = build_solyar_prompt_part1(**prompt_args)
-            report_part1 = ask_gpt(
-                messages1,
-                model="gpt-4-turbo",
-                max_tokens=2500,
-                temperature=0.9,
-            )
-
-            # Вторая часть (разделы 5–7)
+            report_part1 = ask_gpt(messages1, model="gpt-4-turbo", max_tokens=2500, temperature=0.9)
             messages2 = build_solyar_prompt_part2(**prompt_args)
-            report_part2 = ask_gpt(
-                messages2,
-                model="gpt-4-turbo",
-                max_tokens=2500,
-                temperature=0.9,
-            )
-
-            # Склеиваем обе части
+            report_part2 = ask_gpt(messages2, model="gpt-4-turbo", max_tokens=2500, temperature=0.9)
             report_text = report_part1.strip() + "\n\n" + report_part2.strip()
-
         except Exception as e:
             print("GPT error:", e)
             await message.reply_text("Ошибка генерации. Попробуй позже.")
@@ -366,12 +371,11 @@ async def solyar_card_callback(update, context):
         try:
             pdf_bytes = text_to_pdf(report_text, product_type="solyar")
             public_url = upload_pdf_to_storage(user["id"], pdf_bytes)
+            update_user(user["tg_id"], solyar_pdf_url=public_url)
             await message.reply_document(
                 document=public_url,
                 filename="Solyar_Report.pdf",
-                caption=(
-                    "Мяу, всё готово! Вот твой личный прогноз на год — соляр от АстроКотского. Изучи внимательно, найди сильные и сложные периоды, и помни: твой год — это территория для свершений. Если захочется ещё советов, кот всегда на связи!"
-                ),
+                caption="Мяу, всё готово! Вот твой личный прогноз на год — соляр от АстроКотского. Изучи внимательно, найди сильные и сложные периоды, и помни: твой год — это территория для свершений."
             )
             await asyncio.sleep(2)
             await message.reply_text(
@@ -380,8 +384,14 @@ async def solyar_card_callback(update, context):
             )
         except Exception as e:
             print("PDF/upload error:", e)
-            await message.reply_text(
-                "Соляр готов, но файл не прикрепился 😔. Вот текст:\n\n" + report_text
+            from io import BytesIO
+            text_io = BytesIO(report_text.encode("utf-8"))
+            text_io.name = "solyar.txt"
+            text_io.seek(0)
+            await message.reply_document(
+                document=text_io,
+                filename="solyar.txt",
+                caption="Соляр готов, но PDF не прикрепился. Вот текст:"
             )
         return
 
@@ -391,7 +401,7 @@ async def solyar_card_callback(update, context):
     checkout_url = create_checkout_session(tg_id, "solyar", success_url, cancel_url)
 
     await message.reply_text(
-        "Годовой путь (соляр) — платный продукт. Поддержи кота-астролога парой монет и получи персональный навигатор по твоему году. Оплата ниже 👇",
+        "Годовой путь — Стоимость: 4.99€. Поддержи кота-астролога парой монет и получи персональный навигатор по твоему году. Оплата ниже 👇",
         reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("💳 Оплатить в Stripe", url=checkout_url)]])
     )
     await message.reply_text(
@@ -400,6 +410,7 @@ async def solyar_card_callback(update, context):
 
 async def income_card_callback(update, context):
     from prompts import build_income_prompt_part1, build_income_prompt_part2
+    from supabase_client import update_user
 
     if update.callback_query is not None:
         query = update.callback_query
@@ -418,6 +429,20 @@ async def income_card_callback(update, context):
 
     user = user_list[0]
 
+    # Если куплен и есть ссылка — сразу отдаём PDF
+    if user.get("paid_income") and user.get("income_pdf_url"):
+        await message.reply_document(
+            document=user["income_pdf_url"],
+            filename="Income_Report.pdf",
+            caption="Вот твой астрологический разбор по деньгам и карьере! Изучи советы кота, внедряй чеклист и чувствуй себя увереннее в финансовых вопросах. Мяу!"
+        )
+        await asyncio.sleep(2)
+        await message.reply_text(
+            "Хочешь изучить другие разборы? Вернись в главное меню:",
+            reply_markup=ReplyKeyboardMarkup([["В главное меню"]], resize_keyboard=True)
+        )
+        return
+
     if user.get("paid_income"):
         await message.reply_text(
             "Мяу! Делаю разбор по деньгам и карьере. Хвостом чую: сейчас тебе откроются новые горизонты!"
@@ -432,26 +457,11 @@ async def income_card_callback(update, context):
         )
 
         try:
-            # Первая часть (потенциал, установки, стиль, вектор)
             messages1 = build_income_prompt_part1(**prompt_args)
-            report_part1 = ask_gpt(
-                messages1,
-                model="gpt-4-turbo",
-                max_tokens=2500,
-                temperature=0.9,
-            )
-
-            # Вторая часть (когда менять, что мешает, рекомендации)
+            report_part1 = ask_gpt(messages1, model="gpt-4-turbo", max_tokens=2500, temperature=0.9)
             messages2 = build_income_prompt_part2(**prompt_args)
-            report_part2 = ask_gpt(
-                messages2,
-                model="gpt-4-turbo",
-                max_tokens=2500,
-                temperature=0.9,
-            )
-
+            report_part2 = ask_gpt(messages2, model="gpt-4-turbo", max_tokens=2500, temperature=0.9)
             report_text = report_part1.strip() + "\n\n" + report_part2.strip()
-
         except Exception as e:
             print("GPT error:", e)
             await message.reply_text("Ошибка генерации. Попробуй позже.")
@@ -460,12 +470,11 @@ async def income_card_callback(update, context):
         try:
             pdf_bytes = text_to_pdf(report_text, product_type="income")
             public_url = upload_pdf_to_storage(user["id"], pdf_bytes)
+            update_user(user["tg_id"], income_pdf_url=public_url)
             await message.reply_document(
                 document=public_url,
                 filename="Income_Report.pdf",
-                caption=(
-                    "Вот твой астрологический разбор по деньгам и карьере! Изучи советы кота, внедряй чеклист и чувствуй себя увереннее в финансовых вопросах. Мяу!"
-                ),
+                caption="Вот твой астрологический разбор по деньгам и карьере! Изучи советы кота, внедряй чеклист и чувствуй себя увереннее в финансовых вопросах. Мяу!"
             )
             await asyncio.sleep(2)
             await message.reply_text(
@@ -474,8 +483,14 @@ async def income_card_callback(update, context):
             )
         except Exception as e:
             print("PDF/upload error:", e)
-            await message.reply_text(
-                "Разбор готов, но файл не прикрепился 😔. Вот текст:\n\n" + report_text
+            from io import BytesIO
+            text_io = BytesIO(report_text.encode("utf-8"))
+            text_io.name = "income.txt"
+            text_io.seek(0)
+            await message.reply_document(
+                document=text_io,
+                filename="income.txt",
+                caption="Разбор готов, но PDF не прикрепился. Вот текст:"
             )
         return
 
@@ -485,7 +500,7 @@ async def income_card_callback(update, context):
     checkout_url = create_checkout_session(tg_id, "income", success_url, cancel_url)
 
     await message.reply_text(
-        "Карьерный разбор — платный продукт. Поддержи кота-астролога и получи свой персональный денежный разбор! Оплата ниже 👇",
+        "Карьерный разбор — Стоимость: 4.99€. Поддержи кота-астролога и получи свой персональный денежный разбор! Оплата ниже 👇",
         reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("💳 Оплатить в Stripe", url=checkout_url)]]),
     )
     await message.reply_text(
@@ -541,15 +556,28 @@ async def get_partner_location(update, context):
     return ConversationHandler.END
 
 async def compatibility_card_callback(update, context):
+    from supabase_client import update_user
+
     user_tg = update.effective_user
     user_db = get_user(user_tg.id)[0]
+
+    # Если куплен и есть ссылка — сразу отдаём PDF
+    if user_db.get("paid_compatibility") and user_db.get("compatibility_pdf_url"):
+        await update.message.reply_document(
+            document=user_db["compatibility_pdf_url"],
+            filename="Compatibility_Report.pdf",
+            caption="Вот твой разбор совместимости! Мяу!"
+        )
+        await asyncio.sleep(2)
+        await main_menu(update, context)
+        return
 
     if not user_db.get("paid_compatibility"):
         success_url = "https://t.me/CosmoAstrologyBot"
         cancel_url = "https://t.me/CosmoAstrologyBot"
         checkout_url = create_checkout_session(user_tg.id, "compatibility", success_url, cancel_url)
         await update.message.reply_text(
-            "Поддержи кота-астролога и получи разбор совместимости по дате рождения! Оплата ниже 👇",
+            "Стоимость: 4.99€. Поддержи кота-астролога и получи разбор совместимости по дате рождения! Оплата ниже 👇",
             reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("💳 Оплатить в Stripe", url=checkout_url)]])
         )
         await update.message.reply_text(
@@ -583,10 +611,8 @@ async def compatibility_card_callback(update, context):
     try:
         messages1 = build_compatibility_prompt_part1(user, partner)
         report_part1 = ask_gpt(messages1, model="gpt-4-turbo", max_tokens=2500, temperature=0.9)
-
         messages2 = build_compatibility_prompt_part2(user, partner)
         report_part2 = ask_gpt(messages2, model="gpt-4-turbo", max_tokens=2500, temperature=0.9)
-
         report_text = report_part1.strip() + "\n\n" + report_part2.strip()
     except Exception as e:
         print("GPT error:", e)
@@ -596,6 +622,7 @@ async def compatibility_card_callback(update, context):
     try:
         pdf_bytes = text_to_pdf(report_text, product_type="compatibility")
         public_url = upload_pdf_to_storage(user_db["id"], pdf_bytes)
+        update_user(user_db["tg_id"], compatibility_pdf_url=public_url)
         await update.message.reply_document(
             document=public_url,
             filename="Compatibility_Report.pdf",
@@ -605,7 +632,6 @@ async def compatibility_card_callback(update, context):
         await main_menu(update, context)
     except Exception as e:
         print("PDF/upload error:", e)
-        # Безопасно отправляем длинный текст как файл, чтобы не было ошибки Telegram
         from io import BytesIO
         text_io = BytesIO(report_text.encode("utf-8"))
         text_io.name = "compatibility.txt"
