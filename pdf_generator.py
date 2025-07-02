@@ -128,16 +128,11 @@ def text_to_pdf(text: str, product_type="destiny") -> bytes:
                 story.append(Spacer(1, 4))
         story.append(Spacer(1, 10))
 
-    # QR-код + ссылка внизу
-    qr_img = qrcode.make("https://t.me/CosmoAstrologyBot")
-    buf_qr = io.BytesIO()
-    qr_img.save(buf_qr, format='PNG')
-    buf_qr.seek(0)
-    qr_image = Image(buf_qr, width=30*mm, height=30*mm)
+    cat_avatar_path = os.path.join(os.path.dirname(__file__), "static", "cat_avatar.png")
+    cat_avatar_bottom = RLImage(cat_avatar_path, width=120, height=120)
     story.append(Spacer(1, 40))
-    story.append(qr_image)
-    story.append(Spacer(1, 4))
-    story.append(Paragraph('<font size=10 color="#7C3AED">https://t.me/CosmoAstrologyBot</font>', styles["Body"]))
+    story.append(cat_avatar_bottom)
+    story.append(Spacer(1, 6))
 
     doc.build(
         story,
