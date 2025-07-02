@@ -256,9 +256,9 @@ async def destiny_card_callback(update: Update, context: ContextTypes.DEFAULT_TY
         )
         try:
             messages1 = build_destiny_prompt_part1(**prompt_args)
-            report_part1 = ask_gpt(messages1, model="gpt-4-turbo", max_tokens=2500, temperature=0.9)
+            report_part1 = ask_gpt(messages1, model="gpt-3.5-turbo", max_tokens=2500, temperature=0.9)
             messages2 = build_destiny_prompt_part2(**prompt_args)
-            report_part2 = ask_gpt(messages2, model="gpt-4-turbo", max_tokens=2500, temperature=0.9)
+            report_part2 = ask_gpt(messages2, model="gpt-3.5-turbo", max_tokens=2500, temperature=0.9)
             report_text = report_part1.strip() + "\n\n" + report_part2.strip()
         except Exception as e:
             print("GPT error:", e)
@@ -366,9 +366,9 @@ async def solyar_card_callback(update, context):
 
         try:
             messages1 = build_solyar_prompt_part1(**prompt_args)
-            report_part1 = ask_gpt(messages1, model="gpt-4-turbo", max_tokens=2500, temperature=0.9)
+            report_part1 = ask_gpt(messages1, model="gpt-3.5-turbo", max_tokens=2500, temperature=0.9)
             messages2 = build_solyar_prompt_part2(**prompt_args)
-            report_part2 = ask_gpt(messages2, model="gpt-4-turbo", max_tokens=2500, temperature=0.9)
+            report_part2 = ask_gpt(messages2, model="gpt-3.5-turbo", max_tokens=2500, temperature=0.9)
             report_text = report_part1.strip() + "\n\n" + report_part2.strip()
         except Exception as e:
             print("GPT error:", e)
@@ -465,9 +465,9 @@ async def income_card_callback(update, context):
 
         try:
             messages1 = build_income_prompt_part1(**prompt_args)
-            report_part1 = ask_gpt(messages1, model="gpt-4-turbo", max_tokens=2500, temperature=0.9)
+            report_part1 = ask_gpt(messages1, model="gpt-3.5-turbo", max_tokens=2500, temperature=0.9)
             messages2 = build_income_prompt_part2(**prompt_args)
-            report_part2 = ask_gpt(messages2, model="gpt-4-turbo", max_tokens=2500, temperature=0.9)
+            report_part2 = ask_gpt(messages2, model="gpt-3.5-turbo", max_tokens=2500, temperature=0.9)
             report_text = report_part1.strip() + "\n\n" + report_part2.strip()
         except Exception as e:
             print("GPT error:", e)
@@ -617,9 +617,9 @@ async def compatibility_card_callback(update, context):
 
     try:
         messages1 = build_compatibility_prompt_part1(user, partner)
-        report_part1 = ask_gpt(messages1, model="gpt-4-turbo", max_tokens=2500, temperature=0.9)
+        report_part1 = ask_gpt(messages1, model="gpt-3.5-turbo", max_tokens=2500, temperature=0.9)
         messages2 = build_compatibility_prompt_part2(user, partner)
-        report_part2 = ask_gpt(messages2, model="gpt-4-turbo", max_tokens=2500, temperature=0.9)
+        report_part2 = ask_gpt(messages2, model="gpt-3.5-turbo", max_tokens=2500, temperature=0.9)
         report_text = report_part1.strip() + "\n\n" + report_part2.strip()
     except Exception as e:
         print("GPT error:", e)

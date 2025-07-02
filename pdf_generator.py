@@ -18,9 +18,28 @@ from reportlab.pdfbase.ttfonts import TTFont
 # Пути к шрифтам и логотипу
 FONT_PATH = os.path.join(os.path.dirname(__file__), "DejaVuSans.ttf")
 FONT_BOLD_PATH = os.path.join(os.path.dirname(__file__), "DejaVuSans-Bold.ttf")
+AVATAR_MAP = {
+    "destiny": "cat_avatar_destiny.png",
+    "solyar": "cat_avatar_solyar.png",
+    "income": "cat_avatar_career.png",
+    "compatibility": "cat_avatar_comp.png",
+}
+COLOR_MAP = {
+    "destiny": "#FBBF24",        # Желтый
+    "solyar": "#60A5FA",         # Голубой
+    "income": "#34D399",         # Зеленый
+    "compatibility": "#F87171",  # Розовый/красный
+}
 
 pdfmetrics.registerFont(TTFont("DejaVuSans", FONT_PATH))
 pdfmetrics.registerFont(TTFont("DejaVuSans-Bold", FONT_BOLD_PATH))
+
+def get_cat_avatar_path(product_type):
+    name = AVATAR_MAP.get(product_type, "cat_avatar_destiny.png")
+    return os.path.join(os.path.dirname(__file__), "static", name)
+
+def get_brand_color(product_type):
+    return COLOR_MAP.get(product_type, "#7C3AED")
 
 def draw_watermark(canvas, doc):
     logo_path = os.path.join(os.path.dirname(__file__), "static", "logo.png")
@@ -43,6 +62,8 @@ def text_to_pdf(text: str, product_type="destiny") -> bytes:
         buf, pagesize=A4, leftMargin=40, rightMargin=40, topMargin=50, bottomMargin=50
     )
 
+    cat_avatar_path = get_cat_avatar_path(product_type)
+    brand_color = get_brand_color(product_type)
     styles = getSampleStyleSheet()
     styles.add(ParagraphStyle(
         name='Body',
@@ -60,13 +81,13 @@ def text_to_pdf(text: str, product_type="destiny") -> bytes:
         spaceBefore=14,
         spaceAfter=6,
         alignment=TA_LEFT,
-        textColor=colors.HexColor("#7C3AED"),
+        textColor=colors.HexColor(brand_color),
     ))
     styles.add(ParagraphStyle(
         name='BigTitle',
         fontName='DejaVuSans-Bold',
         fontSize=24,
-        textColor=colors.HexColor("#7C3AED"),
+        textColor=colors.HexColor(brand_color),
         leading=28,
         alignment=TA_LEFT,
         spaceAfter=20,
@@ -84,7 +105,6 @@ def text_to_pdf(text: str, product_type="destiny") -> bytes:
         big_title = Paragraph("Совместимость — АстроКотский", styles["BigTitle"])
 
 
-    cat_avatar_path = os.path.join(os.path.dirname(__file__), "static", "cat_avatar.png")
     cat_avatar = RLImage(cat_avatar_path, width=165, height=165)
     title_table = Table(
     [[big_title, cat_avatar]],
@@ -108,7 +128,7 @@ def text_to_pdf(text: str, product_type="destiny") -> bytes:
         if re.match(r"^#+\s*", block):
             clean = re.sub(r"^#+\s*", "", block)
             story.append(Paragraph(clean, styles["Header"]))
-            story.append(HRFlowable(width="100%", thickness=1, color=colors.HexColor("#7C3AED"), spaceBefore=4, spaceAfter=10))
+            story.append(HRFlowable(width="100%", thickness=1, color=colors.HexColor(brand_color), spaceBefore=4, spaceAfter=10))
         # Короткая строка — тоже заголовок
         elif (
             len(block) < 50
@@ -117,7 +137,7 @@ def text_to_pdf(text: str, product_type="destiny") -> bytes:
             and block != ""
         ):
             story.append(Paragraph(block, styles["Header"]))
-            story.append(HRFlowable(width="100%", thickness=1, color=colors.HexColor("#7C3AED"), spaceBefore=4, spaceAfter=10))
+            story.append(HRFlowable(width="100%", thickness=1, color=colors.HexColor(brand_color), spaceBefore=4, spaceAfter=10))
         else:
             for line in block.split('\n'):
                 line = line.strip()
@@ -127,12 +147,6 @@ def text_to_pdf(text: str, product_type="destiny") -> bytes:
                 story.append(Paragraph(line, styles["Body"]))
                 story.append(Spacer(1, 4))
         story.append(Spacer(1, 10))
-
-    cat_avatar_path = os.path.join(os.path.dirname(__file__), "static", "cat_avatar.png")
-    cat_avatar_bottom = RLImage(cat_avatar_path, width=120, height=120)
-    story.append(Spacer(1, 40))
-    story.append(cat_avatar_bottom)
-    story.append(Spacer(1, 6))
 
     doc.build(
         story,
