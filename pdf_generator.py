@@ -168,12 +168,12 @@ def text_to_pdf(text: str, product_type="destiny") -> bytes:
     story.append(title_table)
     story.append(Spacer(1, 24))
 
-    headers = get_headers_for_product(product_type)
+    headers = [h.lower() for h in get_headers_for_product(product_type)]
 
     for block in text.strip().split('\n\n'):
         block = block.strip()
-        # Явно указанный заголовок из структуры
-        if block in headers:
+        block_clean = block.lower().rstrip(":,.!? ")
+        if any(block_clean.startswith(h) for h in headers):
             story.append(Paragraph(block, styles["Header"]))
             story.append(HRFlowable(width="100%", thickness=1, color=colors.HexColor(brand_color), spaceBefore=4, spaceAfter=10))
         # Markdown-заголовок
