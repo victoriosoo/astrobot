@@ -103,6 +103,7 @@ def draw_watermark(canvas, doc):
     canvas.restoreState()
 
 def text_to_pdf(text: str, product_type="destiny") -> bytes:
+    import re, io
     buf = io.BytesIO()
     doc = SimpleDocTemplate(
         buf, pagesize=A4, leftMargin=40, rightMargin=40, topMargin=50, bottomMargin=50
@@ -141,7 +142,7 @@ def text_to_pdf(text: str, product_type="destiny") -> bytes:
 
     story = []
 
-    # Заголовок и котик сверху
+    # --- big title + кот ---
     if product_type == "solyar":
         big_title = Paragraph("Годовой путь (Соляр) — АстроКотский", styles["BigTitle"])
     elif product_type == "income":
@@ -152,11 +153,7 @@ def text_to_pdf(text: str, product_type="destiny") -> bytes:
         big_title = Paragraph("Карта предназначения — АстроКотский", styles["BigTitle"])
 
     cat_avatar = RLImage(cat_avatar_path, width=165, height=165)
-    title_table = Table(
-        [[big_title, cat_avatar]],
-        colWidths=[440, 90],
-        hAlign='LEFT'
-    )
+    title_table = Table([[big_title, cat_avatar]], colWidths=[440, 90], hAlign='LEFT')
     title_table.setStyle(TableStyle([
         ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
         ('ALIGN', (1,0), (1,0), 'RIGHT'),
@@ -170,35 +167,38 @@ def text_to_pdf(text: str, product_type="destiny") -> bytes:
 
     headers = [h.lower() for h in get_headers_for_product(product_type)]
 
-    for block in text.strip().split('\n\n'):
-        block = block.strip()
-        block_clean = block.lower().rstrip(":,.!? ")
-        if any(block_clean.startswith(h) for h in headers):
-            story.append(Paragraph(block, styles["Header"]))
+    # --- Новый универсальный парсер заголовков! ---
+    # Разбиваем на строки и ищем заголовки в ЛЮБОМ месте
+    lines = text.strip().split('\n')
+    i = 0
+    while i < len(lines):
+        line = lines[i].strip()
+        line_clean = line.lower().rstrip(":,.!? ")
+        # Если строка — заголовок
+        if any(line_clean.startswith(h) for h in headers):
+            story.append(Paragraph(line, styles["Header"]))
             story.append(HRFlowable(width="100%", thickness=1, color=colors.HexColor(brand_color), spaceBefore=4, spaceAfter=10))
-        # Markdown-заголовок
-        elif re.match(r"^#+\s*", block):
-            clean = re.sub(r"^#+\s*", "", block)
-            story.append(Paragraph(clean, styles["Header"]))
-            story.append(HRFlowable(width="100%", thickness=1, color=colors.HexColor(brand_color), spaceBefore=4, spaceAfter=10))
-        # Короткая строка — тоже заголовок (мягче условие!)
-        elif (
-            len(block) < 80
-            and not any(ch in block for ch in "-*:;•")
-            and not re.match(r"^[-•]", block)
-            and block != ""
-        ):
-            story.append(Paragraph(block, styles["Header"]))
-            story.append(HRFlowable(width="100%", thickness=1, color=colors.HexColor(brand_color), spaceBefore=4, spaceAfter=10))
+            i += 1
+            # Собираем абзац до следующего заголовка или конца
+            para_lines = []
+            while i < len(lines):
+                next_line = lines[i].strip()
+                next_clean = next_line.lower().rstrip(":,.!? ")
+                if any(next_clean.startswith(h) for h in headers):
+                    break
+                if next_line:
+                    para_lines.append(next_line)
+                i += 1
+            para = "\n".join(para_lines).strip()
+            if para:
+                story.append(Paragraph(para, styles["Body"]))
+            story.append(Spacer(1, 10))
         else:
-            for line in block.split('\n'):
-                line = line.strip()
-                if not line:
-                    continue
-                line = line.replace("**", "").replace("_", "")
+            # Просто текст (нет заголовка)
+            if line:
                 story.append(Paragraph(line, styles["Body"]))
                 story.append(Spacer(1, 4))
-        story.append(Spacer(1, 10))
+            i += 1
 
     doc.build(
         story,
