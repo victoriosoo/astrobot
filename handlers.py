@@ -247,6 +247,11 @@ async def destiny_card_callback(update: Update, context: ContextTypes.DEFAULT_TY
             "Это не очередной шаблон с балкона — всё строго по твоим данным, как и полагается уважающему себя коту-астрологу.\n"
             "Наберись терпения, займёт пару минут... А пока налей себе молока (или, на крайний случай, чаю), расслабь хвост и помурлыкай о чём-нибудь хорошем. Скоро вернусь с результатами!"
         )
+        loading_msg = await message.reply_animation(
+            animation=open("static/loading_cat2.gif", "rb"),
+            caption="⏳ Готовлю твой годовой путь... Сейчас будет волшебство!"
+)
+
         prompt_args = dict(
             name=user.get("name", "Друг"),
             date=datetime.strptime(user["birth_date"], "%Y-%m-%d").strftime("%d.%m.%Y"),
@@ -256,12 +261,13 @@ async def destiny_card_callback(update: Update, context: ContextTypes.DEFAULT_TY
         )
         try:
             messages1 = build_destiny_prompt_part1(**prompt_args)
-            report_part1 = ask_gpt(messages1, model="gpt-4-turbo", max_tokens=2500, temperature=0.9)
+            report_part1 = ask_gpt(messages1, model="gpt-3.5-turbo", max_tokens=2500, temperature=0.9)
             messages2 = build_destiny_prompt_part2(**prompt_args)
-            report_part2 = ask_gpt(messages2, model="gpt-4-turbo", max_tokens=2500, temperature=0.9)
+            report_part2 = ask_gpt(messages2, model="gpt-3.5-turbo", max_tokens=2500, temperature=0.9)
             report_text = report_part1.strip() + "\n\n" + report_part2.strip()
         except Exception as e:
             print("GPT error:", e)
+            await loading_msg.delete()
             await message.reply_text("Ошибка генерации. Попробуй позже.")
             return
 
@@ -270,6 +276,7 @@ async def destiny_card_callback(update: Update, context: ContextTypes.DEFAULT_TY
             public_url = upload_pdf_to_storage(user["id"], pdf_bytes)
             # Сохраняем ссылку в базе
             update_user(user["tg_id"], destiny_pdf_url=public_url)
+            await loading_msg.delete()
             await message.reply_document(
                 document=public_url,
                 filename="Karta_Prednaznacheniya.pdf",
@@ -285,6 +292,7 @@ async def destiny_card_callback(update: Update, context: ContextTypes.DEFAULT_TY
             )
         except Exception as e:
             print("PDF/upload error:", e)
+            await loading_msg.delete()
             from io import BytesIO
             text_io = BytesIO(report_text.encode("utf-8"))
             text_io.name = "destiny.txt"
@@ -355,6 +363,11 @@ async def solyar_card_callback(update, context):
         await message.reply_text(
             "Мяу! Я начинаю собирать твой годовой путь — это не просто прогноз, а твой личный астрологический навигатор на ближайший год. Хвостиком чувствую: получится что-то особенное!"
         )
+        
+        loading_msg = await message.reply_text(
+            video=open("static/loading_cat.mp4", "rb"),
+            caption="⏳ Обрабатываю твой годовой путь... Подожди минутку, кот-астролог колдует над звёздами!"
+        )
 
         prompt_args = dict(
             name=user.get("name", "Друг"),
@@ -366,12 +379,13 @@ async def solyar_card_callback(update, context):
 
         try:
             messages1 = build_solyar_prompt_part1(**prompt_args)
-            report_part1 = ask_gpt(messages1, model="gpt-4-turbo", max_tokens=2500, temperature=0.9)
+            report_part1 = ask_gpt(messages1, model="gpt-3.5-turbo", max_tokens=2500, temperature=0.9)
             messages2 = build_solyar_prompt_part2(**prompt_args)
-            report_part2 = ask_gpt(messages2, model="gpt-4-turbo", max_tokens=2500, temperature=0.9)
+            report_part2 = ask_gpt(messages2, model="gpt-3.5-turbo", max_tokens=2500, temperature=0.9)
             report_text = report_part1.strip() + "\n\n" + report_part2.strip()
         except Exception as e:
             print("GPT error:", e)
+            await loading_msg.delete()
             await message.reply_text("Ошибка генерации. Попробуй позже.")
             return
 
@@ -379,6 +393,7 @@ async def solyar_card_callback(update, context):
             pdf_bytes = text_to_pdf(report_text, product_type="solyar")
             public_url = upload_pdf_to_storage(user["id"], pdf_bytes)
             update_user(user["tg_id"], solyar_pdf_url=public_url)
+            await loading_msg.delete()
             await message.reply_document(
                 document=public_url,
                 filename="Solyar_Report.pdf",
@@ -391,6 +406,7 @@ async def solyar_card_callback(update, context):
             )
         except Exception as e:
             print("PDF/upload error:", e)
+            await loading_msg.delete()
             from io import BytesIO
             text_io = BytesIO(report_text.encode("utf-8"))
             text_io.name = "solyar.txt"

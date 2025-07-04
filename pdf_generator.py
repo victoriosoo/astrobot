@@ -143,7 +143,7 @@ def text_to_pdf(text: str, product_type="destiny") -> bytes:
 
     # Заголовок и котик сверху
     if product_type == "solyar":
-        big_title = Paragraph("Годовой путь (Соляр) — АстроКотский", styles["BigTitle"])
+        big_title = Paragraph("Годовой путь — АстроКотский", styles["BigTitle"])
     elif product_type == "income":
         big_title = Paragraph("Карьерный разбор — АстроКотский", styles["BigTitle"])
     elif product_type == "compatibility":
