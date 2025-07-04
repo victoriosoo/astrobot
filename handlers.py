@@ -364,7 +364,7 @@ async def solyar_card_callback(update, context):
             "Мяу! Я начинаю собирать твой годовой путь — это не просто прогноз, а твой личный астрологический навигатор на ближайший год. Хвостиком чувствую: получится что-то особенное!"
         )
         
-        loading_msg = await message.reply_text(
+        loading_msg = await message.reply_video(
             video=open("static/loading_cat.mp4", "rb"),
             caption="⏳ Обрабатываю твой годовой путь... Подожди минутку, кот-астролог колдует над звёздами!"
         )
