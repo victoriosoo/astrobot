@@ -470,6 +470,10 @@ async def income_card_callback(update, context):
         await message.reply_text(
             "Мяу! Делаю разбор по деньгам и карьере. Хвостом чую: сейчас тебе откроются новые горизонты!"
         )
+        loading_msg = await message.reply_animation(
+            animation=open("static/loading_cat2.gif", "rb"),
+            caption="⏳ Готовлю твой годовой путь... Сейчас будет волшебство!"
+            )
 
         prompt_args = dict(
             name=user.get("name", "Друг"),
@@ -487,6 +491,7 @@ async def income_card_callback(update, context):
             report_text = report_part1.strip() + "\n\n" + report_part2.strip()
         except Exception as e:
             print("GPT error:", e)
+            await loading_msg.delete()
             await message.reply_text("Ошибка генерации. Попробуй позже.")
             return
 
@@ -494,6 +499,7 @@ async def income_card_callback(update, context):
             pdf_bytes = text_to_pdf(report_text, product_type="income")
             public_url = upload_pdf_to_storage(user["id"], pdf_bytes)
             update_user(user["tg_id"], income_pdf_url=public_url)
+            await loading_msg.delete()
             await message.reply_document(
                 document=public_url,
                 filename="Income_Report.pdf",
@@ -506,6 +512,7 @@ async def income_card_callback(update, context):
             )
         except Exception as e:
             print("PDF/upload error:", e)
+            await loading_msg.delete()
             from io import BytesIO
             text_io = BytesIO(report_text.encode("utf-8"))
             text_io.name = "income.txt"
@@ -630,6 +637,10 @@ async def compatibility_card_callback(update, context):
     await update.message.reply_text(
         "Мяу! Начинаю разбор совместимости. Лапы чешутся узнать всё про ваши звёзды — жди подробный PDF!"
     )
+    loading_msg = await message.reply_video(
+            video=open("static/loading_cat.mp4", "rb"),
+            caption="⏳ Обрабатываю твой годовой путь... Подожди минутку, кот-астролог колдует над звёздами!"
+        )
 
     try:
         messages1 = build_compatibility_prompt_part1(user, partner)
@@ -639,6 +650,7 @@ async def compatibility_card_callback(update, context):
         report_text = report_part1.strip() + "\n\n" + report_part2.strip()
     except Exception as e:
         print("GPT error:", e)
+        await loading_msg.delete()
         await update.message.reply_text("Ошибка генерации. Попробуй позже.")
         return
 
@@ -646,6 +658,7 @@ async def compatibility_card_callback(update, context):
         pdf_bytes = text_to_pdf(report_text, product_type="compatibility")
         public_url = upload_pdf_to_storage(user_db["id"], pdf_bytes)
         update_user(user_db["tg_id"], compatibility_pdf_url=public_url)
+        await loading_msg.delete()
         await update.message.reply_document(
             document=public_url,
             filename="Compatibility_Report.pdf",
@@ -655,6 +668,7 @@ async def compatibility_card_callback(update, context):
         await main_menu(update, context)
     except Exception as e:
         print("PDF/upload error:", e)
+        await loading_msg.delete()
         from io import BytesIO
         text_io = BytesIO(report_text.encode("utf-8"))
         text_io.name = "compatibility.txt"
