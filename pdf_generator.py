@@ -18,9 +18,74 @@ from reportlab.pdfbase.ttfonts import TTFont
 # Пути к шрифтам и логотипу
 FONT_PATH = os.path.join(os.path.dirname(__file__), "DejaVuSans.ttf")
 FONT_BOLD_PATH = os.path.join(os.path.dirname(__file__), "DejaVuSans-Bold.ttf")
+AVATAR_MAP = {
+    "destiny": "cat_avatar_destiny.png",
+    "solyar": "cat_avatar_solyar.png",
+    "income": "cat_avatar_career.png",
+    "compatibility": "cat_avatar_comp.png",
+}
+COLOR_MAP = {
+    "destiny": "#FBBF24",        # Желтый
+    "solyar": "#60A5FA",         # Голубой
+    "income": "#34D399",         # Зеленый
+    "compatibility": "#F87171",  # Розовый/красный
+}
+DESTINY_HEADERS = [
+    "Твоя сильная сторона и внутренняя роль",
+    "Ключевые таланты и зоны гениальности",
+    "Темы, в которых ты можешь реализоваться",
+    "Что блокирует твою реализацию",
+    "Путь развития и шаги к раскрытию предназначения",
+    "Что ты пришёл дать другим",
+]
+SOLYAR_HEADERS = [
+    "Главная тема и задача года",
+    "Сферы, где будет движение и рост",
+    "Предупреждения и точки напряжения",
+    "Периоды силы и действия",
+    "Ключевые месяцы и повороты",
+    "Энергетический спад / Перезагрузка",
+    "Фокус внимания и развития",
+]
+INCOME_HEADERS = [
+    "Общий потенциал в деньгах и карьере",
+    "Финансовое поведение и денежные установки",
+    "Стиль работы, в котором ты эффективна",
+    "Карьерный вектор и точки роста",
+    "Когда лучше менять, просить, запускать",
+    "Что мешает расти",
+    "Рекомендации на 3–6 месяцев",
+]
+COMPAT_HEADERS = [
+    "Краткие астропрофили каждого",
+    "Притяжение и точки совпадения",
+    "Зоны конфликта и разногласий",
+    "Эмоциональная и бытовая совместимость",
+    "Сексуальная и энергетическая совместимость",
+    "Рекомендации по сближению",
+    "Краткий прогноз на ближайшие месяцы",
+]
 
 pdfmetrics.registerFont(TTFont("DejaVuSans", FONT_PATH))
 pdfmetrics.registerFont(TTFont("DejaVuSans-Bold", FONT_BOLD_PATH))
+
+def get_cat_avatar_path(product_type):
+    name = AVATAR_MAP.get(product_type, "cat_avatar_destiny.png")
+    return os.path.join(os.path.dirname(__file__), "static", name)
+
+def get_brand_color(product_type):
+    return COLOR_MAP.get(product_type, "#7C3AED")
+
+def get_headers_for_product(product_type):
+    if product_type == "destiny":
+        return DESTINY_HEADERS
+    if product_type == "solyar":
+        return SOLYAR_HEADERS
+    if product_type == "income":
+        return INCOME_HEADERS
+    if product_type == "compatibility":
+        return COMPAT_HEADERS
+    return []
 
 def draw_watermark(canvas, doc):
     logo_path = os.path.join(os.path.dirname(__file__), "static", "logo.png")
@@ -43,6 +108,8 @@ def text_to_pdf(text: str, product_type="destiny") -> bytes:
         buf, pagesize=A4, leftMargin=40, rightMargin=40, topMargin=50, bottomMargin=50
     )
 
+    cat_avatar_path = get_cat_avatar_path(product_type)
+    brand_color = get_brand_color(product_type)
     styles = getSampleStyleSheet()
     styles.add(ParagraphStyle(
         name='Body',
@@ -60,13 +127,13 @@ def text_to_pdf(text: str, product_type="destiny") -> bytes:
         spaceBefore=14,
         spaceAfter=6,
         alignment=TA_LEFT,
-        textColor=colors.HexColor("#7C3AED"),
+        textColor=colors.HexColor(brand_color),
     ))
     styles.add(ParagraphStyle(
         name='BigTitle',
         fontName='DejaVuSans-Bold',
         fontSize=24,
-        textColor=colors.HexColor("#7C3AED"),
+        textColor=colors.HexColor(brand_color),
         leading=28,
         alignment=TA_LEFT,
         spaceAfter=20,
@@ -74,22 +141,21 @@ def text_to_pdf(text: str, product_type="destiny") -> bytes:
 
     story = []
 
+    # Заголовок и котик сверху
     if product_type == "solyar":
         big_title = Paragraph("Годовой путь (Соляр) — АстроКотский", styles["BigTitle"])
     elif product_type == "income":
         big_title = Paragraph("Карьерный разбор — АстроКотский", styles["BigTitle"])
+    elif product_type == "compatibility":
+        big_title = Paragraph("Совместимость — АстроКотский", styles["BigTitle"])
     else:
         big_title = Paragraph("Карта предназначения — АстроКотский", styles["BigTitle"])
-    if product_type == "compatibility":
-        big_title = Paragraph("Совместимость — АстроКотский", styles["BigTitle"])
 
-
-    cat_avatar_path = os.path.join(os.path.dirname(__file__), "static", "cat_avatar.png")
     cat_avatar = RLImage(cat_avatar_path, width=165, height=165)
     title_table = Table(
-    [[big_title, cat_avatar]],
-    colWidths=[440, 90],
-    hAlign='LEFT'
+        [[big_title, cat_avatar]],
+        colWidths=[440, 90],
+        hAlign='LEFT'
     )
     title_table.setStyle(TableStyle([
         ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
@@ -102,22 +168,28 @@ def text_to_pdf(text: str, product_type="destiny") -> bytes:
     story.append(title_table)
     story.append(Spacer(1, 24))
 
+    headers = [h.lower() for h in get_headers_for_product(product_type)]
+
     for block in text.strip().split('\n\n'):
         block = block.strip()
+        block_clean = block.lower().rstrip(":,.!? ")
+        if any(block_clean.startswith(h) for h in headers):
+            story.append(Paragraph(block, styles["Header"]))
+            story.append(HRFlowable(width="100%", thickness=1, color=colors.HexColor(brand_color), spaceBefore=4, spaceAfter=10))
         # Markdown-заголовок
-        if re.match(r"^#+\s*", block):
+        elif re.match(r"^#+\s*", block):
             clean = re.sub(r"^#+\s*", "", block)
             story.append(Paragraph(clean, styles["Header"]))
-            story.append(HRFlowable(width="100%", thickness=1, color=colors.HexColor("#7C3AED"), spaceBefore=4, spaceAfter=10))
-        # Короткая строка — тоже заголовок
+            story.append(HRFlowable(width="100%", thickness=1, color=colors.HexColor(brand_color), spaceBefore=4, spaceAfter=10))
+        # Короткая строка — тоже заголовок (мягче условие!)
         elif (
-            len(block) < 50
-            and not any(ch in block for ch in "-*:;")
+            len(block) < 80
+            and not any(ch in block for ch in "-*:;•")
             and not re.match(r"^[-•]", block)
             and block != ""
         ):
             story.append(Paragraph(block, styles["Header"]))
-            story.append(HRFlowable(width="100%", thickness=1, color=colors.HexColor("#7C3AED"), spaceBefore=4, spaceAfter=10))
+            story.append(HRFlowable(width="100%", thickness=1, color=colors.HexColor(brand_color), spaceBefore=4, spaceAfter=10))
         else:
             for line in block.split('\n'):
                 line = line.strip()
@@ -127,12 +199,6 @@ def text_to_pdf(text: str, product_type="destiny") -> bytes:
                 story.append(Paragraph(line, styles["Body"]))
                 story.append(Spacer(1, 4))
         story.append(Spacer(1, 10))
-
-    cat_avatar_path = os.path.join(os.path.dirname(__file__), "static", "cat_avatar.png")
-    cat_avatar_bottom = RLImage(cat_avatar_path, width=120, height=120)
-    story.append(Spacer(1, 40))
-    story.append(cat_avatar_bottom)
-    story.append(Spacer(1, 6))
 
     doc.build(
         story,
