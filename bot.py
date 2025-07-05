@@ -7,7 +7,7 @@ from handlers import (
     start, ask_birth, ask_time, ask_location, save_profile, main_menu,
     cancel, destiny_product, solyar_product, destiny_card_callback, solyar_card_callback,
     income_product, income_card_callback,
-    compatibility_product,
+    compatibility_product, compatibility_card_callback,
     start_compatibility, get_partner_name, get_partner_date, get_partner_time, get_partner_location,
     COMPAT_NAME, COMPAT_DATE, COMPAT_TIME, COMPAT_LOCATION,
     READY, DATE, TIME, LOCATION
