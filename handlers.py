@@ -588,12 +588,18 @@ async def get_partner_location(update, context):
 async def compatibility_card_callback(update, context):
     from supabase_client import update_user
 
+    # Определяем message корректно для callback и обычного сообщения
+    if update.callback_query is not None:
+        message = update.callback_query.message
+    else:
+        message = update.message
+
     user_tg = update.effective_user
     user_db = get_user(user_tg.id)[0]
 
     # Если куплен и есть ссылка — сразу отдаём PDF
     if user_db.get("paid_compatibility") and user_db.get("compatibility_pdf_url"):
-        await update.message.reply_document(
+        await message.reply_document(
             document=user_db["compatibility_pdf_url"],
             filename="Compatibility_Report.pdf",
             caption="Всё предсказал, как мог. Остальное — к звёздам (или к психотерапевту)."
@@ -606,11 +612,11 @@ async def compatibility_card_callback(update, context):
         success_url = "https://t.me/CosmoAstrologyBot"
         cancel_url = "https://t.me/CosmoAstrologyBot"
         checkout_url = create_checkout_session(user_tg.id, "compatibility", success_url, cancel_url)
-        await update.message.reply_text(
+        await message.reply_text(
             "Стоимость: 4.99€. Поддержи кота-астролога и получи разбор совместимости по дате рождения! Оплата ниже 👇",
             reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("💳 Оплатить в Stripe", url=checkout_url)]])
         )
-        await update.message.reply_text(
+        await message.reply_text(
             "После оплаты снова нажми кнопку ниже, чтобы получить свой разбор.",
             reply_markup=ReplyKeyboardMarkup(
                 [["Проверить совместимость"], ["В главное меню"]],
@@ -634,13 +640,13 @@ async def compatibility_card_callback(update, context):
         "birth_country": context.user_data.get("partner_country"),
     }
 
-    await update.message.reply_text(
+    await message.reply_text(
         "Мяу! Начинаю разбор совместимости. Лапы чешутся узнать всё про ваши звёзды — жди подробный PDF!"
     )
     loading_msg = await message.reply_video(
-            video=open("static/loading_cat.mp4", "rb"),
-            caption="⏳ Обрабатываю твой годовой путь... Подожди минутку, кот-астролог колдует над звёздами!"
-        )
+        video=open("static/loading_cat.mp4", "rb"),
+        caption="⏳ Обрабатываю твою совместимость с партнёром... Подожди минутку, кот-астролог колдует над звёздами!"
+    )
 
     try:
         messages1 = build_compatibility_prompt_part1(user, partner)
@@ -651,7 +657,7 @@ async def compatibility_card_callback(update, context):
     except Exception as e:
         print("GPT error:", e)
         await loading_msg.delete()
-        await update.message.reply_text("Ошибка генерации. Попробуй позже.")
+        await message.reply_text("Ошибка генерации. Попробуй позже.")
         return
 
     try:
@@ -659,7 +665,7 @@ async def compatibility_card_callback(update, context):
         public_url = upload_pdf_to_storage(user_db["id"], pdf_bytes)
         update_user(user_db["tg_id"], compatibility_pdf_url=public_url)
         await loading_msg.delete()
-        await update.message.reply_document(
+        await message.reply_document(
             document=public_url,
             filename="Compatibility_Report.pdf",
             caption="Всё предсказал, как мог. Остальное — к звёздам (или к психотерапевту)."
@@ -673,7 +679,7 @@ async def compatibility_card_callback(update, context):
         text_io = BytesIO(report_text.encode("utf-8"))
         text_io.name = "compatibility.txt"
         text_io.seek(0)
-        await update.message.reply_document(
+        await message.reply_document(
             document=text_io,
             filename="compatibility.txt",
             caption="Совместимость готова, но PDF не прикрепился. Вот полный текст:"
