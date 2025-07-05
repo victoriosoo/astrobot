@@ -33,7 +33,9 @@ if __name__ == "__main__":
         fallbacks=[CommandHandler("cancel", cancel)],
     )
     compat_conv_handler = ConversationHandler(
-        entry_points=[MessageHandler(filters.Regex(r"^Проверить совместимость$"), start_compatibility)],
+        entry_points=[
+            MessageHandler(filters.Regex(r"^Проверить совместимость$"), compatibility_card_callback),
+        ],
         states={
             COMPAT_NAME: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_partner_name)],
             COMPAT_DATE: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_partner_date)],
@@ -41,7 +43,7 @@ if __name__ == "__main__":
             COMPAT_LOCATION: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_partner_location)],
         },
         fallbacks=[MessageHandler(filters.Regex(r"^В главное меню$"), main_menu)],
-    )
+)
     app.add_handler(compat_conv_handler)
     app.add_handler(conv_handler)
     app.add_handler(MessageHandler(filters.Regex(r"^В главное меню$"), main_menu))
