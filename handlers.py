@@ -589,7 +589,18 @@ async def compatibility_card_callback(update, context):
     user_tg = update.effective_user
     user_db = get_user(user_tg.id)[0]
 
-    # Если НЕ оплачено — предлагаем оплатить
+    # 1. Если оплачен и есть готовый PDF — сразу присылаем!
+    if user_db.get("paid_compatibility") and user_db.get("compatibility_pdf_url"):
+        await update.message.reply_document(
+            document=user_db["compatibility_pdf_url"],
+            filename="Compatibility_Report.pdf",
+            caption="Всё предсказал, как мог. Остальное — к звёздам (или к психотерапевту)."
+        )
+        await asyncio.sleep(2)
+        await main_menu(update, context)
+        return ConversationHandler.END
+
+    # 2. Если НЕ оплачено — предлагаем оплатить
     if not user_db.get("paid_compatibility"):
         success_url = "https://t.me/CosmoAstrologyBot"
         cancel_url = "https://t.me/CosmoAstrologyBot"
@@ -607,7 +618,7 @@ async def compatibility_card_callback(update, context):
         )
         return ConversationHandler.END
 
-    # Если оплачено — сразу запускаем цепочку сбора данных о партнёре
+    # 3. Если оплачено, но PDF ещё не был сгенерен — запускаем сбор данных о партнёре
     await update.message.reply_text(
         "Введи имя или пометку для второго человека (например, «Виктор» или «Партнёр»):",
         reply_markup=ReplyKeyboardRemove()
@@ -664,7 +675,10 @@ async def generate_compatibility_pdf(update, context):
             caption="Всё предсказал, как мог. Остальное — к звёздам (или к психотерапевту)."
         )
         await asyncio.sleep(2)
-        await main_menu(update, context)
+        await update.message.reply_text(
+            "Захочешь получить другие кото-разборы — возвращайся в главное меню. Я тут, если что, не сплю!",
+            reply_markup=ReplyKeyboardMarkup([["В главное меню"]], resize_keyboard=True)
+)
     except Exception as e:
         print("PDF/upload error:", e)
         await loading_msg.delete()
