@@ -47,7 +47,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     return READY
 
 async def ask_birth(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.message.text != "🐾 Готова":
+    if update.message.text != "🐾 Готов(а)":
         return READY
     await update.message.reply_text(
     "1/3 — Раскроем первую тайну: когда ты родился(ась)? Введи дату рождения (ДД.ММ.ГГГГ):\n"

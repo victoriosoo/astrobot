@@ -25,7 +25,7 @@ if __name__ == "__main__":
     conv_handler = ConversationHandler(
         entry_points=[CommandHandler("start", start)],
         states={
-            READY: [MessageHandler(filters.Regex(r"^🐾 Готова$"), ask_birth)],
+            READY: [MessageHandler(filters.Regex(r"^🐾 Готов(а)$"), ask_birth)],
             DATE: [MessageHandler(filters.TEXT & ~filters.COMMAND, ask_time)],
             TIME: [MessageHandler(filters.TEXT & ~filters.COMMAND, ask_location)],
             LOCATION: [MessageHandler(filters.TEXT & ~filters.COMMAND, save_profile)],
