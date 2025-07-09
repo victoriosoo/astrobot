@@ -1,7 +1,11 @@
 import logging
 import os
 from dotenv import load_dotenv
-from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, CallbackQueryHandler, ConversationHandler, filters
+from telegram import BotCommand
+from telegram.ext import (
+    ApplicationBuilder, CommandHandler, MessageHandler, CallbackQueryHandler,
+    ConversationHandler, filters
+)
 
 from handlers import (
     start, ask_birth, ask_time, ask_location, save_profile, main_menu,
@@ -19,8 +23,24 @@ TG_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+# Меню команд Telegram
+COMMANDS = [
+    BotCommand("menu", "Главное меню"),
+    BotCommand("prednaznachenie", "Карта предназначения"),
+    BotCommand("godovoyputj", "Годовой путь"),
+    BotCommand("dohod", "Доход и карьера"),
+    BotCommand("sovmestimost", "Совместимость"),
+]
+
+async def set_commands(app):
+    await app.bot.set_my_commands(COMMANDS)
+
 if __name__ == "__main__":
     app = ApplicationBuilder().token(TG_TOKEN).build()
+
+    # Добавляем команды в меню Telegram при старте
+    import asyncio
+    asyncio.get_event_loop().run_until_complete(set_commands(app))
 
     conv_handler = ConversationHandler(
         entry_points=[CommandHandler("start", start)],
@@ -43,11 +63,18 @@ if __name__ == "__main__":
             COMPAT_LOCATION: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_partner_location)],
         },
         fallbacks=[MessageHandler(filters.Regex(r"^В главное меню$"), main_menu)],
-)
+    )
+
     app.add_handler(compat_conv_handler)
     app.add_handler(conv_handler)
     app.add_handler(MessageHandler(filters.Regex(r"^В главное меню$"), main_menu))
     app.add_handler(CommandHandler("menu", main_menu))
+    # Новые команды через слэш
+    app.add_handler(CommandHandler("prednaznachenie", destiny_product))
+    app.add_handler(CommandHandler("godovoyputj", solyar_product))
+    app.add_handler(CommandHandler("dohod", income_product))
+    app.add_handler(CommandHandler("sovmestimost", compatibility_product))
+
     app.add_handler(MessageHandler(filters.Regex(r"^📜 Карта предназначения$"), destiny_product))
     app.add_handler(MessageHandler(filters.Regex(r"^Получить карту$"), destiny_card_callback))
     app.add_handler(CallbackQueryHandler(destiny_card_callback, pattern=r"^destiny_card$"))
