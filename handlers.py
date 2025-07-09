@@ -42,7 +42,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         "Чтобы творить магию — мне нужны твои координаты: когда, где и во сколько ты появился(ась) на свет. Без этих данных даже кот не превратит тебя в звезду!\n"
         "Ну что, готов(а) выдать тайны рождения? 👇",
-        reply_markup=ReplyKeyboardMarkup([[KeyboardButton("🐾 Готов(а)")]], resize_keyboard=True)
+        reply_markup=ReplyKeyboardMarkup([[KeyboardButton("🐾 Готов(а)")]], resize_keyboard=True,is_persistent=True)
     )
     return READY
 
@@ -115,7 +115,7 @@ async def main_menu(update, context):
                 ["📜 Карта предназначения"],["🗺️ Годовой путь"],
                 ["💸 Карьера и доход"],["💞 Совместимость по дате рождения"]
             ],
-            resize_keyboard=True
+            resize_keyboard=True,is_persistent=True
         ),
     )
 
@@ -135,7 +135,7 @@ async def destiny_product(update: Update, context: ContextTypes.DEFAULT_TYPE):
             [
                 ["Получить карту"],
                 ["В главное меню"]            
-            ], resize_keyboard=True
+            ], resize_keyboard=True,is_persistent=True
         ),
     )
 
@@ -156,7 +156,7 @@ async def solyar_product(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 ["Получить годовой разбор"],
                 ["В главное меню"]
             ],
-            resize_keyboard=True
+            resize_keyboard=True,is_persistent=True
         ),
     )
 async def income_product(update, context):
@@ -178,7 +178,7 @@ async def income_product(update, context):
                 ["Получить разбор карьеры"],
                 ["В главное меню"]
             ],
-            resize_keyboard=True
+            resize_keyboard=True,is_persistent=True
         ),
     )
 async def compatibility_product(update, context):
@@ -194,7 +194,7 @@ async def compatibility_product(update, context):
                 ["Проверить совместимость"],
                 ["В главное меню"]
             ],
-            resize_keyboard=True
+            resize_keyboard=True,is_persistent=True
         ),
     )
 
@@ -237,7 +237,7 @@ async def destiny_card_callback(update: Update, context: ContextTypes.DEFAULT_TY
             await asyncio.sleep(2)
             await message.reply_text(
                 "Захочешь посмотреть другие кото-разборы — возвращайся в главное меню. Я тут, если что, не сплю!",
-                reply_markup=ReplyKeyboardMarkup([["В главное меню"]], resize_keyboard=True)
+                reply_markup=ReplyKeyboardMarkup([["В главное меню"]], resize_keyboard=True,is_persistent=True)
             )
             return
 
@@ -288,7 +288,7 @@ async def destiny_card_callback(update: Update, context: ContextTypes.DEFAULT_TY
             await asyncio.sleep(2)
             await message.reply_text(
                 "Захочешь посмотреть другие кото-разборы — возвращайся в главное меню. Я тут, если что, не сплю!",
-                reply_markup=ReplyKeyboardMarkup([["В главное меню"]], resize_keyboard=True)
+                reply_markup=ReplyKeyboardMarkup([["В главное меню"]], resize_keyboard=True,is_persistent=True)
             )
         except Exception as e:
             print("PDF/upload error:", e)
@@ -355,7 +355,7 @@ async def solyar_card_callback(update, context):
         await asyncio.sleep(2)
         await message.reply_text(
             "Захочешь посмотреть другие кото-разборы — возвращайся в главное меню. Я тут, если что, не сплю!",
-            reply_markup=ReplyKeyboardMarkup([["В главное меню"]], resize_keyboard=True)
+            reply_markup=ReplyKeyboardMarkup([["В главное меню"]], resize_keyboard=True,is_persistent=True)
         )
         return
 
@@ -402,7 +402,7 @@ async def solyar_card_callback(update, context):
             await asyncio.sleep(2)
             await message.reply_text(
                 "Захочешь посмотреть другие кото-разборы — возвращайся в главное меню. Я тут, если что, не сплю!",
-                reply_markup=ReplyKeyboardMarkup([["В главное меню"]], resize_keyboard=True)
+                reply_markup=ReplyKeyboardMarkup([["В главное меню"]], resize_keyboard=True,is_persistent=True)
             )
         except Exception as e:
             print("PDF/upload error:", e)
@@ -462,7 +462,7 @@ async def income_card_callback(update, context):
         await asyncio.sleep(2)
         await message.reply_text(
             "Захочешь посмотреть другие кото-разборы — возвращайся в главное меню. Я тут, если что, не сплю!",
-            reply_markup=ReplyKeyboardMarkup([["В главное меню"]], resize_keyboard=True)
+            reply_markup=ReplyKeyboardMarkup([["В главное меню"]], resize_keyboard=True,is_persistent=True)
         )
         return
 
@@ -508,7 +508,7 @@ async def income_card_callback(update, context):
             await asyncio.sleep(2)
             await message.reply_text(
                 "Захочешь посмотреть другие кото-разборы — возвращайся в главное меню. Я тут, если что, не сплю!",
-                reply_markup=ReplyKeyboardMarkup([["В главное меню"]], resize_keyboard=True)
+                reply_markup=ReplyKeyboardMarkup([["В главное меню"]], resize_keyboard=True,is_persistent=True)
             )
         except Exception as e:
             print("PDF/upload error:", e)
@@ -613,7 +613,7 @@ async def compatibility_card_callback(update, context):
             "После оплаты снова нажми «Проверить совместимость», чтобы ввести данные партнёра.",
             reply_markup=ReplyKeyboardMarkup(
                 [["Проверить совместимость"], ["В главное меню"]],
-                resize_keyboard=True
+                resize_keyboard=True,is_persistent=True
             )
         )
         return ConversationHandler.END
@@ -677,7 +677,7 @@ async def generate_compatibility_pdf(update, context):
         await asyncio.sleep(2)
         await update.message.reply_text(
             "Захочешь получить другие кото-разборы — возвращайся в главное меню. Я тут, если что, не сплю!",
-            reply_markup=ReplyKeyboardMarkup([["В главное меню"]], resize_keyboard=True)
+            reply_markup=ReplyKeyboardMarkup([["В главное меню"]], resize_keyboard=True,is_persistent=True)
 )
     except Exception as e:
         print("PDF/upload error:", e)
