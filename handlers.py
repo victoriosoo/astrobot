@@ -41,8 +41,10 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await asyncio.sleep(2)
     await update.message.reply_text(
         "Чтобы творить магию — мне нужны твои координаты: когда, где и во сколько ты появился(ась) на свет. Без этих данных даже кот не превратит тебя в звезду!\n"
-        "Ну что, готов(а) выдать тайны рождения? 👇",
-        reply_markup=ReplyKeyboardMarkup([[KeyboardButton("🐾 Готов(а)")]], resize_keyboard=True,is_persistent=True)
+        "Ну что, готов(а) выдать тайны рождения? 👇\n\n"
+        "_Если кнопка ниже не появилась — просто напиши «Готов(а)» вручную._",
+        reply_markup=ReplyKeyboardMarkup([[KeyboardButton("🐾 Готов(а)")]], resize_keyboard=True, is_persistent=True),
+        parse_mode="Markdown"
     )
     return READY
 
